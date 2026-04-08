@@ -1,0 +1,12 @@
+export const DIGIT_COUNT = 4;
+export const MIN_DIGIT = 0;
+export const MAX_DIGIT = 9;
+export const TOTAL_PERMUTATIONS = 5040; // P(10,4)
+export const MAX_GUESSES = 20;
+export const SECRET_SET_TIMEOUT_MS = 60_000; // 60s to set secret
+export const TURN_TIMEOUT_MS = 120_000; // 2min per turn
+export const INVITE_TTL_MS = 30_000; // 30s invite expiry
+export const AI_THINK_MIN_MS = 500;
+export const AI_THINK_MAX_MS = 1500;
+export const STARTING_ELO = 1200;
+export const ELO_K_FACTOR = 32;

@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg: #0c0e14;
+  --color-bg-card: #151823;
+  --color-bg-elevated: #1c2033;
+  --color-bg-hover: #242840;
+
+  --color-text: #e8eaf0;
+  --color-text-muted: #7a7f96;
+  --color-text-dim: #4a4f66;
+
+  --color-bull: #f0a45b;
+  --color-bull-glow: #f0a45b40;
+  --color-cow: #5bb8f0;
+  --color-cow-glow: #5bb8f040;
+
+  --color-accent: #a78bfa;
+  --color-accent-glow: #a78bfa30;
+  --color-success: #6ee7a0;
+  --color-danger: #f07070;
+  --color-warning: #f0d45b;
+
+  --color-border: #2a2e42;
+  --color-border-light: #353950;
+
+  --color-online: #6ee7a0;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-light);
+}
+
+/* Digit card flip */
+@keyframes flip-in {
+  0% { transform: rotateX(90deg); opacity: 0; }
+  100% { transform: rotateX(0deg); opacity: 1; }
+}
+
+@keyframes pulse-bull {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-bull-glow); }
+  50% { box-shadow: 0 0 20px 4px var(--color-bull-glow); }
+}
+
+@keyframes pulse-cow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-cow-glow); }
+  50% { box-shadow: 0 0 20px 4px var(--color-cow-glow); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-flip-in {
+  animation: flip-in 0.4s ease-out forwards;
+}
+
+.animate-pulse-bull {
+  animation: pulse-bull 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-cow {
+  animation: pulse-cow 1.5s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s ease-out forwards;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}

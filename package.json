@@ -1,0 +1,25 @@
+{
+  "name": "bulls-and-cows",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "docker compose up -d mongo redis && concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:client": "npm run dev -w client",
+    "dev:server": "npm run dev -w server",
+    "build": "npm run build -w @bulls-and-cows/shared && npm run build -w server && npm run build -w client",
+    "test": "npm run test -w server",
+    "lint": "npm run lint -w client && npm run lint -w server",
+    "clean": "rm -rf node_modules client/node_modules server/node_modules packages/shared/node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
