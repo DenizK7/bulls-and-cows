@@ -56,4 +56,38 @@ router.get('/me', async (req, res) => {
   }
 });
 
+// Update display name
+router.patch('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'No token' });
+      return;
+    }
+
+    const payload = verifyJwt(authHeader.slice(7));
+    if (!payload) {
+      res.status(401).json({ error: 'Invalid token' });
+      return;
+    }
+
+    const { displayName } = req.body;
+    if (!displayName || displayName.length < 2 || displayName.length > 20 || /\s/.test(displayName)) {
+      res.status(400).json({ error: 'Username must be 2-20 chars, no spaces' });
+      return;
+    }
+
+    const user = await User.findByIdAndUpdate(payload.userId, { displayName }, { new: true });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json({ id: user._id, displayName: user.displayName, tag: user.tag });
+  } catch (err) {
+    console.error('Auth patch me error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

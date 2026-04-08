@@ -41,6 +41,10 @@ export default function LobbyPage() {
   const [inviteTurnTime, setInviteTurnTime] = useState(60000);
   const [pendingInvite, setPendingInvite] = useState<{ inviteId: string; from: { displayName: string }; turnTimeMs: number } | null>(null);
   const [readyState, setReadyState] = useState<{ inviteId: string; readyCount: number; amReady: boolean; countdown: number | null } | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [nameMsg, setNameMsg] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const token = (session as { backendToken?: string })?.backendToken;
 
@@ -170,8 +174,86 @@ export default function LobbyPage() {
             <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-online" : "bg-danger"}`} />
             {user?.image && <Image src={user.image} alt="" width={24} height={24} className="rounded-full" />}
             <span className="text-xs text-text-muted">{user?.name}<span className="text-text-dim font-mono ml-1">#{userTag}</span></span>
-            <button onClick={() => signOut({ callbackUrl: "/" })}
-              className="text-[10px] text-text-dim hover:text-text-muted cursor-pointer ml-1">out</button>
+            <div className="relative">
+              <button onClick={() => { setSettingsOpen(!settingsOpen); setEditName(user?.name || ""); setNameMsg(""); }}
+                className="ml-1 p-1 rounded-md hover:bg-bg-elevated text-text-dim hover:text-text-muted cursor-pointer transition-colors"
+                aria-label="Settings">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </button>
+
+              <AnimatePresence>
+                {settingsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                    <motion.div initial={{ opacity: 0, y: -4, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full mt-2 z-50 w-64 bg-bg-card border border-border rounded-xl shadow-xl p-4 flex flex-col gap-3">
+                      <div className="text-xs font-semibold text-text-muted uppercase tracking-wider">Settings</div>
+
+                      {/* Display Name */}
+                      <div>
+                        <label className="text-[11px] text-text-dim mb-1 block">Display Name</label>
+                        <div className="flex gap-1.5">
+                          <input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value.replace(/\s/g, ""))}
+                            maxLength={20}
+                            className="flex-1 bg-bg-elevated border border-border rounded-lg px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none font-medium"
+                          />
+                          <button
+                            disabled={savingName || editName === user?.name || editName.length < 2}
+                            onClick={async () => {
+                              if (!token) return;
+                              setSavingName(true); setNameMsg("");
+                              try {
+                                const res = await fetch(`${API}/auth/me`, {
+                                  method: "PATCH",
+                                  headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                                  body: JSON.stringify({ displayName: editName }),
+                                });
+                                const data = await res.json();
+                                if (res.ok) { setNameMsg("Saved!"); }
+                                else setNameMsg(data.error || "Failed");
+                              } catch { setNameMsg("Error"); }
+                              setSavingName(false);
+                            }}
+                            className="px-2.5 py-1.5 bg-accent text-bg text-xs font-medium rounded-lg hover:brightness-110 disabled:opacity-30 cursor-pointer">
+                            Save
+                          </button>
+                        </div>
+                        {nameMsg && <p className={`text-[10px] mt-1 ${nameMsg === "Saved!" ? "text-success" : "text-danger"}`}>{nameMsg}</p>}
+                      </div>
+
+                      {/* Tag (read-only) */}
+                      <div>
+                        <label className="text-[11px] text-text-dim mb-1 block">Your Tag</label>
+                        <div className="bg-bg-elevated border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono text-text-muted">
+                          {user?.name}#{userTag}
+                        </div>
+                      </div>
+
+                      {/* Sound toggle placeholder */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-muted">Sound Effects</span>
+                        <div className="w-8 h-4 bg-bg-elevated border border-border rounded-full relative cursor-not-allowed opacity-50">
+                          <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-text-dim rounded-full" />
+                        </div>
+                      </div>
+
+                      <div className="border-t border-border pt-2">
+                        <button onClick={() => signOut({ callbackUrl: "/" })}
+                          className="w-full py-2 text-xs text-danger hover:bg-danger/10 rounded-lg cursor-pointer transition-colors font-medium">
+                          Sign Out
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 

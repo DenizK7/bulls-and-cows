@@ -13,9 +13,11 @@ export async function upsertUser(profile: {
     {
       $set: {
         email: profile.email,
-        displayName: profile.displayName,
         avatarUrl: profile.avatarUrl,
         lastOnline: new Date(),
+      },
+      $setOnInsert: {
+        displayName: profile.displayName,
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
