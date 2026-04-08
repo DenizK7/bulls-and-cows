@@ -30,6 +30,7 @@ export const authOptions: AuthOptions = {
           const data = await res.json();
           token.backendToken = data.token;
           token.userId = data.user.id;
+          token.tag = data.user.tag;
         }
       }
       return token;
@@ -39,6 +40,7 @@ export const authOptions: AuthOptions = {
         ...session,
         backendToken: token.backendToken as string,
         userId: token.userId as string,
+        tag: token.tag as string,
         user: {
           ...session.user,
           image: token.picture as string,

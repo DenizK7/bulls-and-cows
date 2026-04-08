@@ -7,6 +7,7 @@ import { env } from './config/env.js';
 import { connectDatabase } from './config/database.js';
 import { connectRedis } from './config/redis.js';
 import authRoutes from './routes/auth.routes.js';
+import friendRoutes from './routes/friend.routes.js';
 import { setupSocket } from './socket/index.js';
 
 const app = express();
@@ -30,6 +31,7 @@ app.get('/api/health', (_req, res) => {
 
 // REST routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/friends', friendRoutes);
 
 // Socket.io
 setupSocket(io);

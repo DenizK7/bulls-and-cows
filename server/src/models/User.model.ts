@@ -5,6 +5,7 @@ export interface IUser extends Document {
   googleId: string;
   email: string;
   displayName: string;
+  tag: string;
   avatarUrl: string;
   stats: {
     gamesPlayed: number;
@@ -31,6 +32,7 @@ const userSchema = new Schema<IUser>(
     googleId: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     displayName: { type: String, required: true },
+    tag: { type: String, required: true, default: () => String(Math.floor(1000 + Math.random() * 9000)) },
     avatarUrl: { type: String, default: '' },
     stats: {
       gamesPlayed: { type: Number, default: 0 },
@@ -54,5 +56,6 @@ const userSchema = new Schema<IUser>(
 
 userSchema.index({ 'stats.eloRating': -1 });
 userSchema.index({ displayName: 'text' });
+userSchema.index({ displayName: 1, tag: 1 }, { unique: true });
 
 export const User = mongoose.model<IUser>('User', userSchema);
