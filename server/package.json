@@ -12,6 +12,7 @@
   "dependencies": {
     "@bulls-and-cows/shared": "*",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.1",
     "express": "^4.21.2",
     "ioredis": "^5.4.2",
     "jsonwebtoken": "^9.0.2",

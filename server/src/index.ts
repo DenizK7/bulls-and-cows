@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -5,6 +6,8 @@ import cors from 'cors';
 import { env } from './config/env.js';
 import { connectDatabase } from './config/database.js';
 import { connectRedis } from './config/redis.js';
+import authRoutes from './routes/auth.routes.js';
+import { setupSocket } from './socket/index.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -25,8 +28,11 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// TODO: Mount REST routes
-// TODO: Mount Socket.io handlers
+// REST routes
+app.use('/api/v1/auth', authRoutes);
+
+// Socket.io
+setupSocket(io);
 
 async function start() {
   await connectDatabase();
