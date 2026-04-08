@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "@/hooks/useSocket";
 import { useMusicPlayer } from "@/components/MusicPlayer";
@@ -365,6 +365,23 @@ function PlayerPanel({
   );
 }
 
+const GAME_EMOJIS = ["😄", "🤔", "🔥", "😤", "😘", "😡", "👏", "😂"];
+
+function FloatingEmoji({ emoji, id, side }: { emoji: string; id: number; side: "left" | "right" }) {
+  return (
+    <motion.div
+      key={id}
+      initial={{ opacity: 1, y: 0, scale: 0.5 }}
+      animate={{ opacity: 0, y: -120, scale: 1.4 }}
+      transition={{ duration: 1.5, ease: "easeOut" }}
+      className={`fixed z-[70] text-4xl pointer-events-none ${side === "left" ? "left-[20%]" : "right-[20%]"}`}
+      style={{ bottom: "30%" }}
+    >
+      {emoji}
+    </motion.div>
+  );
+}
+
 function TutorialBubble({ text, onDismiss, id }: { text: string; onDismiss: () => void; id: string }) {
   return (
     <motion.div key={id} initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.95 }}
@@ -580,10 +597,31 @@ export default function GamePage() {
   const game = useGame(socket, gameId);
   const [notepadOpen, setNotepadOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
+  const [floatingEmojis, setFloatingEmojis] = useState<{ emoji: string; id: number; side: "left" | "right" }[]>([]);
+  const emojiIdRef = useRef(0);
   const music = useMusicPlayer();
   const { t } = useT();
   const searchParams = useSearchParams();
   const tutorial = useTutorialTips(game.myGuesses, notepadOpen, game.status === "in_progress", searchParams);
+
+  const sendEmoji = (emoji: string) => {
+    if (!socket || !game.gameId) return;
+    socket.emit("client:game:emoji", { gameId: game.gameId, emoji });
+    const id = ++emojiIdRef.current;
+    setFloatingEmojis((p) => [...p, { emoji, id, side: "left" }]);
+    setTimeout(() => setFloatingEmojis((p) => p.filter((e) => e.id !== id)), 1600);
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleEmoji = (data: { emoji: string }) => {
+      const id = ++emojiIdRef.current;
+      setFloatingEmojis((p) => [...p, { emoji: data.emoji, id, side: "right" }]);
+      setTimeout(() => setFloatingEmojis((p) => p.filter((e) => e.id !== id)), 1600);
+    };
+    socket.on("server:game:emoji", handleEmoji);
+    return () => { socket.off("server:game:emoji", handleEmoji); };
+  }, [socket]);
 
   useEffect(() => {
     if (authStatus === "unauthenticated") router.push("/login");
@@ -714,6 +752,11 @@ export default function GamePage() {
         )}
       </div>
 
+      {/* Floating emoji reactions */}
+      <AnimatePresence>
+        {floatingEmojis.map((e) => <FloatingEmoji key={e.id} emoji={e.emoji} id={e.id} side={e.side} />)}
+      </AnimatePresence>
+
       {/* Bottom bar: input + notepad toggle (sticky) */}
       {game.status === "in_progress" && (
         <div className={`shrink-0 px-4 pb-3 pt-2 border-t border-border bg-bg/80 backdrop-blur-sm ${tutorial.hasActiveTip ? "relative z-[60]" : ""}`}>
@@ -732,28 +775,50 @@ export default function GamePage() {
                 <div className="flex-1">
                   <DigitInput onSubmit={game.submitGuess} disabled={false} confirmLabel={t("game.confirm")} />
                 </div>
+                <div className="flex flex-col gap-1.5 shrink-0">
+                  <button
+                    onClick={() => setNotepadOpen(!notepadOpen)}
+                    className={`lg:hidden h-10 px-3 rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-all text-xs font-medium ${
+                      notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
+                    }`}
+                  >
+                    {t("game.notepad")}
+                  </button>
+                  {/* Emoji reactions */}
+                  <div className="flex flex-wrap gap-1 justify-center">
+                    {GAME_EMOJIS.map((e) => (
+                      <button key={e} type="button" onClick={() => sendEmoji(e)}
+                        className="w-8 h-8 rounded-lg bg-bg-elevated border border-border hover:border-accent/30 hover:bg-bg-hover active:scale-90 transition-all cursor-pointer text-base flex items-center justify-center">
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-2">
+              <div className="flex items-center gap-2 text-text-muted">
+                <div className="w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">{game.opponent?.displayName} {t("game.waiting")}</span>
                 <button
                   onClick={() => setNotepadOpen(!notepadOpen)}
-                  className={`lg:hidden shrink-0 h-10 px-3 rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-all text-xs font-medium ${
+                  className={`lg:hidden ml-2 shrink-0 h-8 px-2.5 rounded-lg border flex items-center justify-center cursor-pointer transition-all text-xs font-medium ${
                     notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
                   }`}
                 >
                   {t("game.notepad")}
                 </button>
               </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center gap-2 py-2 text-text-muted">
-              <div className="w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm">{game.opponent?.displayName} {t("game.waiting")}</span>
-              <button
-                onClick={() => setNotepadOpen(!notepadOpen)}
-                className={`lg:hidden ml-2 shrink-0 h-8 px-2.5 rounded-lg border flex items-center justify-center cursor-pointer transition-all text-xs font-medium ${
-                  notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
-                }`}
-              >
-                {t("game.notepad")}
-              </button>
+              {/* Emoji reactions - also available while waiting */}
+              <div className="flex gap-1.5">
+                {GAME_EMOJIS.map((e) => (
+                  <button key={e} type="button" onClick={() => sendEmoji(e)}
+                    className="w-8 h-8 rounded-lg bg-bg-elevated border border-border hover:border-accent/30 hover:bg-bg-hover active:scale-90 transition-all cursor-pointer text-base flex items-center justify-center">
+                    {e}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

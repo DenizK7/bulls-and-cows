@@ -308,6 +308,12 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
     }
   });
 
+  // Emoji reaction — relay to opponent
+  socket.on('client:game:emoji', ({ gameId, emoji }: { gameId: string; emoji: string }) => {
+    if (!emoji || emoji.length > 4) return;
+    socket.to(gameRoom(gameId)).emit('server:game:emoji', { emoji });
+  });
+
   // Quit game
   socket.on('client:game:quit', async ({ gameId }: { gameId: string }) => {
     try {
