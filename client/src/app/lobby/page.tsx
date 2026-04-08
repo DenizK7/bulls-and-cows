@@ -45,6 +45,8 @@ export default function LobbyPage() {
   const [editName, setEditName] = useState("");
   const [nameMsg, setNameMsg] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
+  const [setupTag, setSetupTag] = useState(() => String(Math.floor(1000 + Math.random() * 9000)));
 
   const token = (session as { backendToken?: string })?.backendToken;
 
@@ -65,6 +67,14 @@ export default function LobbyPage() {
   }, [status, router]);
 
   useEffect(() => { fetchFriends(); }, [fetchFriends]);
+
+  // Check if first-login setup is needed
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => { if (!data.setupComplete) setShowSetup(true); });
+  }, [token]);
 
   // Socket events
   useEffect(() => {
@@ -468,6 +478,70 @@ export default function LobbyPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* First login setup modal */}
+      <AnimatePresence>
+        {showSetup && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="bg-bg-card border border-border rounded-2xl p-6 max-w-sm w-full">
+              <div className="text-center mb-5">
+                <h2 className="text-xl font-bold">Welcome!</h2>
+                <p className="text-text-muted text-sm mt-1">Choose your username and tag</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-text-dim mb-1 block">Username</label>
+                  <input value={editName} onChange={(e) => setEditName(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20))}
+                    maxLength={20} placeholder="CoolPlayer"
+                    className="w-full bg-bg-elevated border-2 border-border rounded-xl px-4 py-3 text-sm font-medium focus:border-accent focus:outline-none" />
+                  <p className="text-[10px] text-text-dim mt-1">2-20 characters, letters/numbers/underscore only</p>
+                </div>
+                <div>
+                  <label className="text-xs text-text-dim mb-1 block">Tag #</label>
+                  <div className="flex gap-2">
+                    <div className="flex items-center bg-bg-elevated border-2 border-border rounded-xl px-4 py-3 flex-1">
+                      <span className="text-text-dim text-sm mr-1">#</span>
+                      <input value={setupTag} onChange={(e) => setSetupTag(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                        maxLength={4} placeholder="1234"
+                        className="bg-transparent text-sm font-mono font-bold focus:outline-none w-16" />
+                    </div>
+                    <button onClick={() => setSetupTag(String(Math.floor(1000 + Math.random() * 9000)))}
+                      className="px-3 py-3 bg-bg-elevated border border-border rounded-xl text-text-dim hover:text-text-muted cursor-pointer text-xs">
+                      Random
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-bg-elevated rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-text-dim mb-0.5">Your profile</p>
+                  <p className="font-bold">{editName || "..."}<span className="text-accent font-mono">#{setupTag || "0000"}</span></p>
+                </div>
+                {nameMsg && <p className={`text-xs text-center ${nameMsg.includes("!") ? "text-success" : "text-danger"}`}>{nameMsg}</p>}
+                <button disabled={savingName || editName.length < 2 || setupTag.length !== 4}
+                  onClick={async () => {
+                    if (!token) return;
+                    setSavingName(true); setNameMsg("");
+                    try {
+                      const res = await fetch(`${API}/auth/me`, {
+                        method: "PATCH",
+                        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                        body: JSON.stringify({ displayName: editName, tag: setupTag }),
+                      });
+                      const data = await res.json();
+                      if (res.ok) { setShowSetup(false); /* TODO: open tutorial */ }
+                      else setNameMsg(data.error || "Failed");
+                    } catch { setNameMsg("Network error"); }
+                    setSavingName(false);
+                  }}
+                  className="w-full py-3 bg-accent text-bg font-semibold rounded-xl hover:brightness-110 cursor-pointer active:scale-[0.98] disabled:opacity-40">
+                  {savingName ? "Saving..." : "Let's Go!"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Invite Modal - select turn time and send */}
       <AnimatePresence>

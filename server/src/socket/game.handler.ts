@@ -34,15 +34,12 @@ function startTurnTimer(io: Server, gameId: string, currentTurn: 'host' | 'chall
       // AI never loses by timeout - only real players do
       if (game.type === 'ai') return;
 
-      // The player whose turn it is loses by timeout
-      const loserId = currentTurn === 'host'
-        ? game.players.host.userId.toString()
-        : game.players.challenger.userId.toString();
-      const winnerId = currentTurn === 'host'
-        ? game.players.challenger.userId.toString()
-        : game.players.host.userId.toString();
-
-      await endGame(io, game, winnerId === 'AI' ? null : winnerId, 'timeout');
+      // PvP: skip the timed-out player's turn instead of ending the game
+      const nextTurn = currentTurn === 'host' ? 'challenger' : 'host';
+      if (nextTurn === 'host') game.currentRound++;
+      await game.save();
+      startTurnTimer(io, gameId, nextTurn);
+      io.to(gameRoom(gameId)).emit('server:game:turn-skipped', { skippedPlayer: currentTurn });
     } catch (err) {
       console.error('Turn timeout error:', err);
     }

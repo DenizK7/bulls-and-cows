@@ -299,7 +299,17 @@ function PlayerPanel({
         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
           isMe ? "bg-accent/20 text-accent" : "bg-bg-elevated text-text-muted"
         }`}>
-          {avatarUrl ? <img src={avatarUrl} alt="" className="w-6 h-6 rounded-full" /> : label[0]?.toUpperCase()}
+          {!isMe && label.includes("AI") ? (
+            <svg className="w-full h-full p-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="5" y="8" width="14" height="12" rx="2" />
+              <circle cx="9" cy="13" r="1.5" fill="currentColor" />
+              <circle cx="15" cy="13" r="1.5" fill="currentColor" />
+              <path d="M10 17h4" strokeLinecap="round" />
+              <path d="M12 4v4" />
+              <circle cx="12" cy="3" r="1" fill="currentColor" />
+              <path d="M3 14h2M19 14h2" strokeLinecap="round" />
+            </svg>
+          ) : avatarUrl ? <img src={avatarUrl} alt="" className="w-6 h-6 rounded-full" /> : label[0]?.toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium truncate">{label}</div>
@@ -758,7 +768,20 @@ export default function GamePage() {
                 <div className="text-xs text-text-dim mt-1">{game.myGuesses.length} guesses</div>
               </div>
               <div className={`flex-1 rounded-xl p-4 text-center border ${!isWinner && !isDraw ? "border-success/30 bg-success/5" : "border-border bg-bg-card"}`}>
-                <div className="text-xs text-text-dim mb-1">{game.opponent?.displayName}</div>
+                <div className="text-xs text-text-dim mb-1 flex items-center justify-center gap-1">
+                  {game.opponent?.displayName.includes("AI") && (
+                    <svg className="w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="5" y="8" width="14" height="12" rx="2" />
+                      <circle cx="9" cy="13" r="1.5" fill="currentColor" />
+                      <circle cx="15" cy="13" r="1.5" fill="currentColor" />
+                      <path d="M10 17h4" strokeLinecap="round" />
+                      <path d="M12 4v4" />
+                      <circle cx="12" cy="3" r="1" fill="currentColor" />
+                      <path d="M3 14h2M19 14h2" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {game.opponent?.displayName}
+                </div>
                 <div className="font-mono text-2xl font-bold text-accent tracking-widest">
                   {game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret}
                 </div>

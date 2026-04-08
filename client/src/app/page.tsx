@@ -31,7 +31,7 @@ function DigitCard({
       initial={{ rotateX: 90, opacity: 0 }}
       animate={{ rotateX: 0, opacity: 1 }}
       transition={{ delay, duration: 0.4, ease: "easeOut" }}
-      className={`w-12 h-14 sm:w-14 sm:h-16 rounded-lg border-2 ${bg} flex items-center justify-center font-mono text-2xl sm:text-3xl font-bold`}
+      className={`w-10 h-12 rounded-lg border-2 ${bg} flex items-center justify-center font-mono text-xl font-bold`}
     >
       {digit}
     </motion.div>
@@ -101,7 +101,7 @@ function DemoRow({
 
 export default function Home() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 py-12 overflow-hidden">
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 overflow-hidden">
       {/* Background decorations */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[15%] left-[10%] w-72 h-72 bg-bull/5 rounded-full blur-[100px]" />
@@ -109,7 +109,7 @@ export default function Home() {
         <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/3 rounded-full blur-[150px]" />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center gap-12 max-w-lg w-full">
+      <div className="relative z-10 flex flex-col items-center gap-6 max-w-lg w-full">
         {/* Logo & Title */}
         <motion.div
           initial={{ opacity: 0, y: -30 }}
@@ -117,27 +117,11 @@ export default function Home() {
           transition={{ duration: 0.6 }}
           className="text-center"
         >
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <motion.span
-              animate={{ rotate: [0, -10, 10, 0] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-              className="text-4xl inline-block"
-            >
-              🐂
-            </motion.span>
-            <h1 className="text-5xl sm:text-6xl font-bold tracking-tight">
-              <span className="text-bull">Bulls</span>
-              <span className="text-text-dim mx-2">&</span>
-              <span className="text-cow">Cows</span>
-            </h1>
-            <motion.span
-              animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
-              className="text-4xl inline-block"
-            >
-              🐄
-            </motion.span>
-          </div>
+          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-4">
+            <span className="text-bull">Bulls</span>
+            <span className="text-text-dim mx-2">&</span>
+            <span className="text-cow">Cows</span>
+          </h1>
           <p className="text-text-muted text-lg">
             Crack the code. Challenge your friends.
           </p>
@@ -148,7 +132,7 @@ export default function Home() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="bg-bg-card/80 backdrop-blur-sm border border-border rounded-2xl p-6 sm:p-8 w-full"
+          className="bg-bg-card/80 backdrop-blur-sm border border-border rounded-2xl p-4 sm:p-5 w-full"
         >
           <div className="flex items-center justify-between mb-5">
             <span className="text-text-muted text-sm font-medium uppercase tracking-wider">
@@ -186,16 +170,11 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.4 }}
-          className="flex flex-col sm:flex-row gap-3 w-full"
+          className="w-full"
         >
-          <Link href="/login" className="flex-1">
+          <Link href="/login" className="block">
             <button className="w-full px-8 py-4 bg-accent text-bg font-semibold text-lg rounded-xl hover:brightness-110 transition-all duration-200 cursor-pointer active:scale-[0.98]">
               Play Now
-            </button>
-          </Link>
-          <Link href="/how-to-play" className="flex-1">
-            <button className="w-full px-8 py-4 bg-bg-elevated border border-border text-text font-semibold text-lg rounded-xl hover:bg-bg-hover hover:border-border-light transition-all duration-200 cursor-pointer active:scale-[0.98]">
-              How to Play
             </button>
           </Link>
         </motion.div>
@@ -205,7 +184,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.9 }}
-          className="flex gap-8 text-center"
+          className="flex gap-6 text-center"
         >
           <div>
             <div className="text-2xl font-bold text-text font-mono">1v1</div>

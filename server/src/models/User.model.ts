@@ -7,6 +7,7 @@ export interface IUser extends Document {
   displayName: string;
   tag: string;
   avatarUrl: string;
+  setupComplete: boolean;
   stats: {
     gamesPlayed: number;
     gamesWon: number;
@@ -34,6 +35,7 @@ const userSchema = new Schema<IUser>(
     displayName: { type: String, required: true },
     tag: { type: String, required: true, default: () => String(Math.floor(1000 + Math.random() * 9000)) },
     avatarUrl: { type: String, default: '' },
+    setupComplete: { type: Boolean, default: false },
     stats: {
       gamesPlayed: { type: Number, default: 0 },
       gamesWon: { type: Number, default: 0 },
