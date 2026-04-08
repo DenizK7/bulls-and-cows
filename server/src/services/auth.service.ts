@@ -17,7 +17,7 @@ export async function upsertUser(profile: {
         lastOnline: new Date(),
       },
       $setOnInsert: {
-        displayName: profile.displayName,
+        displayName: profile.displayName.split(' ')[0].replace(/\s/g, ''),
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },

@@ -63,6 +63,22 @@ router.get('/requests', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/v1/friends/requests/sent - list pending outgoing requests
+router.get('/requests/sent', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const requests = await Friendship.find({
+      requesterId: userId,
+      status: 'pending',
+    }).populate('recipientId', 'displayName avatarUrl tag');
+
+    res.json({ requests });
+  } catch (err) {
+    console.error('List sent requests error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // POST /api/v1/friends/request - send friend request by displayName#tag
 router.post('/request', async (req: Request, res: Response) => {
   try {

@@ -36,15 +36,11 @@ export default function LoginPage() {
         transition={{ duration: 0.5 }}
         className="relative z-10 bg-bg-card border border-border rounded-2xl p-8 sm:p-10 max-w-sm w-full text-center"
       >
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-3xl">🐂</span>
-          <h1 className="text-3xl font-bold">
-            <span className="text-bull">Bulls</span>
-            <span className="text-text-dim mx-1">&</span>
-            <span className="text-cow">Cows</span>
-          </h1>
-          <span className="text-3xl">🐄</span>
-        </div>
+        <h1 className="text-3xl font-bold mb-2">
+          <span className="text-bull">Bulls</span>
+          <span className="text-text-dim mx-1">&</span>
+          <span className="text-cow">Cows</span>
+        </h1>
 
         <p className="text-text-muted mb-8">Sign in to start playing</p>
 

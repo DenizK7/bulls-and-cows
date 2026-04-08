@@ -31,6 +31,7 @@ export default function LobbyPage() {
   const [tab, setTab] = useState<"play" | "friends">("play");
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<{ _id: string; recipientId: { displayName: string; tag: string } }[]>([]);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
   const [friendSearch, setFriendSearch] = useState("");
   const [friendTag, setFriendTag] = useState("");
@@ -54,12 +55,14 @@ export default function LobbyPage() {
   const fetchFriends = useCallback(async () => {
     if (!token) return;
     try {
-      const [fRes, rRes] = await Promise.all([
+      const [fRes, rRes, sRes] = await Promise.all([
         fetch(`${API}/friends`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API}/friends/requests`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/friends/requests/sent`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (fRes.ok) { const d = await fRes.json(); setFriends(d.friends || []); }
       if (rRes.ok) { const d = await rRes.json(); setRequests(d.requests || []); }
+      if (sRes.ok) { const d = await sRes.json(); setSentRequests(d.requests || []); }
     } catch {}
   }, [token]);
 
@@ -377,23 +380,23 @@ export default function LobbyPage() {
                         <input
                           value={friendSearch}
                           onChange={(e) => setFriendSearch(e.target.value)}
-                          placeholder="Display Name"
-                          className="flex-1 bg-bg-elevated border border-border rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                          placeholder="Name"
+                          className="flex-1 min-w-0 bg-bg-elevated border border-border rounded-lg px-2 py-2 text-xs focus:border-accent focus:outline-none"
                         />
-                        <div className="flex items-center bg-bg-elevated border border-border rounded-lg px-2">
-                          <span className="text-text-dim text-sm">#</span>
+                        <div className="flex items-center bg-bg-elevated border border-border rounded-lg px-1.5 shrink-0">
+                          <span className="text-text-dim text-xs">#</span>
                           <input
                             value={friendTag}
                             onChange={(e) => setFriendTag(e.target.value.replace(/\D/g, "").slice(0, 4))}
                             placeholder="0000"
                             maxLength={4}
-                            className="w-12 bg-transparent text-sm py-2 focus:outline-none font-mono"
+                            className="w-10 bg-transparent text-xs py-2 focus:outline-none font-mono"
                           />
                         </div>
                         <button
                           onClick={handleAddFriend}
                           disabled={!friendSearch || friendTag.length !== 4}
-                          className="px-4 py-2 bg-accent text-bg text-sm font-medium rounded-lg hover:brightness-110 disabled:opacity-30 cursor-pointer"
+                          className="px-3 py-2 bg-accent text-bg text-xs font-medium rounded-lg hover:brightness-110 disabled:opacity-30 cursor-pointer shrink-0"
                         >
                           Send
                         </button>
@@ -430,6 +433,21 @@ export default function LobbyPage() {
                           <button onClick={() => handleAccept(r._id)} className="px-3 py-1 bg-success/20 text-success text-xs font-medium rounded-lg cursor-pointer hover:bg-success/30">Accept</button>
                           <button onClick={() => handleDecline(r._id)} className="px-3 py-1 bg-danger/20 text-danger text-xs font-medium rounded-lg cursor-pointer hover:bg-danger/30">Decline</button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sent Requests */}
+              {sentRequests.length > 0 && (
+                <div className="bg-bg-card border border-border rounded-xl p-4">
+                  <h3 className="text-xs font-semibold text-text-dim mb-2">Sent ({sentRequests.length})</h3>
+                  <div className="flex flex-col gap-1.5">
+                    {sentRequests.map((r) => (
+                      <div key={r._id} className="flex items-center justify-between bg-bg-elevated rounded-lg px-3 py-1.5">
+                        <span className="text-xs text-text-muted">{r.recipientId.displayName}<span className="text-text-dim font-mono ml-0.5">#{r.recipientId.tag}</span></span>
+                        <span className="text-[10px] text-text-dim">pending</span>
                       </div>
                     ))}
                   </div>
