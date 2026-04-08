@@ -61,7 +61,12 @@ export default function LobbyPage() {
         fetch(`${API}/friends/requests`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API}/friends/requests/sent`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      if (fRes.ok) { const d = await fRes.json(); setFriends(d.friends || []); }
+      if (fRes.ok) {
+        const d = await fRes.json();
+        const fl = d.friends || [];
+        setFriends(fl);
+        setOnlineUsers(new Set(fl.filter((f: any) => f.online).map((f: any) => f._id)));
+      }
       if (rRes.ok) { const d = await rRes.json(); setRequests(d.requests || []); }
       if (sRes.ok) { const d = await sRes.json(); setSentRequests(d.requests || []); }
     } catch {}

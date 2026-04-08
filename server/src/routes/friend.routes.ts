@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { User } from '../models/User.model.js';
 import { Friendship } from '../models/Friendship.model.js';
 import { verifyJwt } from '../services/auth.service.js';
+import { redis } from '../config/redis.js';
 import type { Request, Response, NextFunction } from 'express';
 
 const router = Router();
@@ -35,10 +36,12 @@ router.get('/', async (req: Request, res: Response) => {
       .populate('requesterId', 'displayName avatarUrl tag stats.eloRating')
       .populate('recipientId', 'displayName avatarUrl tag stats.eloRating');
 
-    const friends = friendships.map((f) => {
+    const friends = await Promise.all(friendships.map(async (f) => {
       const friend = f.requesterId._id.toString() === userId ? f.recipientId : f.requesterId;
-      return friend;
-    });
+      const friendObj = (friend as any).toObject ? (friend as any).toObject() : friend;
+      const online = await redis.sismember('users:online', friendObj._id.toString());
+      return { ...friendObj, online: !!online };
+    }));
 
     res.json({ friends });
   } catch (err) {
