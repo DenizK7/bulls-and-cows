@@ -1,30 +1,32 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg: #0c0e14;
-  --color-bg-card: #151823;
-  --color-bg-elevated: #1c2033;
-  --color-bg-hover: #242840;
+  /* Warm dark — "forest & honey" */
+  --color-bg: #12100e;
+  --color-bg-card: #1b1816;
+  --color-bg-elevated: #24211e;
+  --color-bg-hover: #2e2b27;
 
-  --color-text: #e8eaf0;
-  --color-text-muted: #7a7f96;
-  --color-text-dim: #4a4f66;
+  --color-text: #ede5d8;
+  --color-text-muted: #9a9185;
+  --color-text-dim: #665e54;
 
-  --color-bull: #f0a45b;
-  --color-bull-glow: #f0a45b40;
-  --color-cow: #5bb8f0;
-  --color-cow-glow: #5bb8f040;
+  /* Green = correct spot, Amber = wrong spot */
+  --color-bull: #7cb87c;
+  --color-bull-glow: #7cb87c40;
+  --color-cow: #d49a5c;
+  --color-cow-glow: #d49a5c40;
 
-  --color-accent: #a78bfa;
-  --color-accent-glow: #a78bfa30;
-  --color-success: #6ee7a0;
-  --color-danger: #f07070;
-  --color-warning: #f0d45b;
+  --color-accent: #c2916a;
+  --color-accent-glow: #c2916a30;
+  --color-success: #7cb87c;
+  --color-danger: #c87070;
+  --color-warning: #d4b85c;
 
-  --color-border: #2a2e42;
-  --color-border-light: #353950;
+  --color-border: #2a2622;
+  --color-border-light: #37322d;
 
-  --color-online: #6ee7a0;
+  --color-online: #7cb87c;
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -33,6 +35,11 @@
 body {
   background: var(--color-bg);
   color: var(--color-text);
+  /* Subtle warm radial glow — breaks the flat look */
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% 0%, #1e1a1505 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 100%, #c2916a04 0%, transparent 60%);
+  background-attachment: fixed;
 }
 
 /* Custom scrollbar */
