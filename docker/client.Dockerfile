@@ -23,7 +23,8 @@ RUN npm run build -w client
 FROM node:20-alpine
 WORKDIR /app
 COPY --from=builder /app/client/.next/standalone ./
-COPY --from=builder /app/client/.next/static ./.next/static
-COPY --from=builder /app/client/public ./public
+COPY --from=builder /app/client/.next/static ./client/.next/static
+COPY --from=builder /app/client/public ./client/public
 ENV PORT=3000
-CMD ["node", "server.js"]
+ENV HOSTNAME=0.0.0.0
+CMD ["node", "client/server.js"]
