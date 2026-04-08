@@ -354,20 +354,22 @@ export default function LobbyPage() {
                   <div className="flex flex-wrap gap-2">
                     {friends.map((f) => {
                       const isOnline = onlineUsers.has(f._id);
+                      const isInGame = (f as any).inGame;
                       return (
                         <button key={f._id}
-                          onClick={() => isOnline && setInviteModal({ friendId: f._id, friendName: f.displayName })}
-                          disabled={!isOnline}
+                          onClick={() => isOnline && !isInGame && setInviteModal({ friendId: f._id, friendName: f.displayName })}
+                          disabled={!isOnline || isInGame}
                           className={`flex items-center gap-1.5 bg-bg-elevated border rounded-lg px-3 py-1.5 text-xs transition-all ${
-                            isOnline ? "border-border hover:border-accent/30 cursor-pointer" : "border-border/50 opacity-40 cursor-not-allowed"
+                            isOnline && !isInGame ? "border-border hover:border-accent/30 cursor-pointer" : "border-border/50 opacity-40 cursor-not-allowed"
                           }`}>
                           <div className="relative">
                             {f.avatarUrl ? <img src={f.avatarUrl} alt="" className="w-5 h-5 rounded-full" /> :
                               <div className="w-5 h-5 bg-accent/20 rounded-full flex items-center justify-center text-[8px] font-bold text-accent">{f.displayName[0]}</div>}
-                            <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-bg-elevated ${isOnline ? "bg-online" : "bg-text-dim"}`} />
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-bg-elevated ${isOnline ? (isInGame ? "bg-warning" : "bg-online") : "bg-text-dim"}`} />
                           </div>
                           <span className="font-medium">{f.displayName}</span>
                           {!isOnline && <span className="text-[9px] text-text-dim">offline</span>}
+                          {isOnline && isInGame && <span className="text-[9px] text-warning">in game</span>}
                         </button>
                       );
                     })}

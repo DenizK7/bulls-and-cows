@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { User } from '../models/User.model.js';
 import { Friendship } from '../models/Friendship.model.js';
+import { Game } from '../models/Game.model.js';
 import { verifyJwt } from '../services/auth.service.js';
 import { redis } from '../config/redis.js';
 import type { Request, Response, NextFunction } from 'express';
@@ -39,8 +40,13 @@ router.get('/', async (req: Request, res: Response) => {
     const friends = await Promise.all(friendships.map(async (f) => {
       const friend = f.requesterId._id.toString() === userId ? f.recipientId : f.requesterId;
       const friendObj = (friend as any).toObject ? (friend as any).toObject() : friend;
-      const online = await redis.sismember('users:online', friendObj._id.toString());
-      return { ...friendObj, online: !!online };
+      const fid = friendObj._id.toString();
+      const online = await redis.sismember('users:online', fid);
+      const activeGame = await Game.exists({
+        status: { $in: ['waiting_secrets', 'in_progress'] },
+        $or: [{ 'players.host.userId': fid }, { 'players.challenger.userId': fid }],
+      });
+      return { ...friendObj, online: !!online, inGame: !!activeGame };
     }));
 
     res.json({ friends });
