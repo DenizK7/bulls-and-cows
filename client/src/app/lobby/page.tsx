@@ -41,6 +41,7 @@ export default function LobbyPage() {
   const [inviteModal, setInviteModal] = useState<{ friendId: string; friendName: string } | null>(null);
   const [inviteTurnTime, setInviteTurnTime] = useState(60000);
   const [pendingInvite, setPendingInvite] = useState<{ inviteId: string; from: { displayName: string }; turnTimeMs: number } | null>(null);
+  const [waitingInvite, setWaitingInvite] = useState<{ friendName: string; timeout: ReturnType<typeof setTimeout> } | null>(null);
   const [readyState, setReadyState] = useState<{ inviteId: string; readyCount: number; amReady: boolean; countdown: number | null } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editName, setEditName] = useState("");
@@ -95,8 +96,19 @@ export default function LobbyPage() {
 
     const handleInviteReceived = (data: { inviteId: string; from: { displayName: string }; turnTimeMs: number }) => {
       setPendingInvite(data);
+      // Auto-decline after 15s
+      setTimeout(() => {
+        setPendingInvite((current) => {
+          if (current?.inviteId === data.inviteId) {
+            socket?.emit("client:invite:decline", { inviteId: data.inviteId });
+            return null;
+          }
+          return current;
+        });
+      }, 15000);
     };
     const handleInviteAccepted = (data: { inviteId: string }) => {
+      if (waitingInvite) { clearTimeout(waitingInvite.timeout); setWaitingInvite(null); }
       setReadyState({ inviteId: data.inviteId, readyCount: 0, amReady: false, countdown: null });
       setInviteModal(null);
     };
@@ -110,7 +122,7 @@ export default function LobbyPage() {
       setReadyState(null); setPendingInvite(null);
       router.push(`/game/${data.gameId}`);
     };
-    const handleInviteDeclined = () => { setInviteModal(null); setReadyState(null); };
+    const handleInviteDeclined = () => { setInviteModal(null); setReadyState(null); if (waitingInvite) { clearTimeout(waitingInvite.timeout); setWaitingInvite(null); } };
 
     socket.on("server:game:state", handleGameState);
     socket.on("server:matchmaking:found", handleFound);
@@ -335,17 +347,25 @@ export default function LobbyPage() {
                   <p className="text-text-dim text-xs">Add friends in the Friends tab to invite them!</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {friends.map((f) => (
-                      <button key={f._id} onClick={() => setInviteModal({ friendId: f._id, friendName: f.displayName })}
-                        className="flex items-center gap-1.5 bg-bg-elevated border border-border rounded-lg px-3 py-1.5 text-xs hover:border-accent/30 cursor-pointer transition-all">
-                        <div className="relative">
-                          {f.avatarUrl ? <img src={f.avatarUrl} alt="" className="w-5 h-5 rounded-full" /> :
-                            <div className="w-5 h-5 bg-accent/20 rounded-full flex items-center justify-center text-[8px] font-bold text-accent">{f.displayName[0]}</div>}
-                          <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-bg-elevated ${onlineUsers.has(f._id) ? "bg-online" : "bg-text-dim"}`} />
-                        </div>
-                        <span className="font-medium">{f.displayName}</span>
-                      </button>
-                    ))}
+                    {friends.map((f) => {
+                      const isOnline = onlineUsers.has(f._id);
+                      return (
+                        <button key={f._id}
+                          onClick={() => isOnline && setInviteModal({ friendId: f._id, friendName: f.displayName })}
+                          disabled={!isOnline}
+                          className={`flex items-center gap-1.5 bg-bg-elevated border rounded-lg px-3 py-1.5 text-xs transition-all ${
+                            isOnline ? "border-border hover:border-accent/30 cursor-pointer" : "border-border/50 opacity-40 cursor-not-allowed"
+                          }`}>
+                          <div className="relative">
+                            {f.avatarUrl ? <img src={f.avatarUrl} alt="" className="w-5 h-5 rounded-full" /> :
+                              <div className="w-5 h-5 bg-accent/20 rounded-full flex items-center justify-center text-[8px] font-bold text-accent">{f.displayName[0]}</div>}
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-bg-elevated ${isOnline ? "bg-online" : "bg-text-dim"}`} />
+                          </div>
+                          <span className="font-medium">{f.displayName}</span>
+                          {!isOnline && <span className="text-[9px] text-text-dim">offline</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -610,12 +630,35 @@ export default function LobbyPage() {
                 </button>
                 <button onClick={() => {
                   socket?.emit("client:invite:send", { toUserId: inviteModal.friendId, turnTime: inviteTurnTime });
+                  const friendName = inviteModal.friendName;
                   setInviteModal(null);
+                  const t = setTimeout(() => setWaitingInvite(null), 15000);
+                  setWaitingInvite({ friendName, timeout: t });
                 }}
                   className="flex-1 py-2.5 bg-accent text-bg font-semibold rounded-xl cursor-pointer hover:brightness-110">
                   Send Invite
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Waiting for invite response */}
+      <AnimatePresence>
+        {waitingInvite && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
+              className="bg-bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center">
+              <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <h3 className="text-base font-bold mb-1">Invite Sent</h3>
+              <p className="text-text-muted text-sm mb-4">Waiting for <strong className="text-text">{waitingInvite.friendName}</strong> to respond...</p>
+              <p className="text-text-dim text-xs mb-4">Expires in 15 seconds</p>
+              <button onClick={() => { if (waitingInvite) clearTimeout(waitingInvite.timeout); setWaitingInvite(null); }}
+                className="w-full py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl cursor-pointer hover:bg-bg-hover">
+                Cancel
+              </button>
             </motion.div>
           </motion.div>
         )}
