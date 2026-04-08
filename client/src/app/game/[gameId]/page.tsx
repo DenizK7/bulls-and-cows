@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "@/hooks/useSocket";
@@ -177,6 +177,11 @@ function DigitInput({
   const filledDigits = digits.filter((d) => d !== "");
   const isValid = filledDigits.length === 4;
 
+  // Auto-focus first input on mount
+  useEffect(() => {
+    ref0.current?.focus();
+  }, []);
+
   const handleChange = (index: number, value: string) => {
     if (!/^\d?$/.test(value)) return;
     const newDigits = [...digits];
@@ -349,18 +354,13 @@ interface TutorialTips {
   isTutorial: boolean;
 }
 
-function useTutorialTips(guesses: { bulls: number; cows: number }[], notepadOpen: boolean): TutorialTips {
-  const [isTutorial] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const val = sessionStorage.getItem("tutorial");
-    if (val) { sessionStorage.removeItem("tutorial"); return true; }
-    return false;
-  });
+function useTutorialTips(guesses: { bulls: number; cows: number }[], notepadOpen: boolean, gameActive: boolean, searchParams: ReturnType<typeof useSearchParams>): TutorialTips {
+  const isTutorial = searchParams.has("tutorial");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const dismiss = (key: string) => setDismissed(prev => new Set(prev).add(key));
 
   const empty: TutorialTips = { input: null, notepad: null, guessArea: null, hasActiveTip: false, dismiss, isTutorial };
-  if (!isTutorial) return empty;
+  if (!isTutorial || !gameActive) return empty;
 
   const guessCount = guesses.length;
 
@@ -492,7 +492,8 @@ export default function GamePage() {
   const game = useGame(socket, gameId);
   const [notepadOpen, setNotepadOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
-  const tutorial = useTutorialTips(game.myGuesses, notepadOpen);
+  const searchParams = useSearchParams();
+  const tutorial = useTutorialTips(game.myGuesses, notepadOpen, game.status === "in_progress", searchParams);
 
   useEffect(() => {
     if (authStatus === "unauthenticated") router.push("/login");

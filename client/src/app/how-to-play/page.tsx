@@ -97,10 +97,9 @@ export default function HowToPlayPage() {
 
   const startTutorialGame = () => {
     if (socket) {
-      sessionStorage.setItem("tutorial", "true");
       socket.emit("client:game:start-ai", { difficulty: "easy" });
       const handler = (data: { gameId: string }) => {
-        router.push(`/game/${data.gameId}`);
+        router.push(`/game/${data.gameId}?tutorial=1`);
         socket.off("server:game:state", handler);
       };
       socket.on("server:game:state", handler);
