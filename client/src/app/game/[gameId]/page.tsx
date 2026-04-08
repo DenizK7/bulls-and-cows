@@ -323,22 +323,32 @@ function PlayerPanel({
   );
 }
 
-function TutorialTip({ text, onDismiss }: { text: string; onDismiss: () => void }) {
+function TutorialBubble({ text, onDismiss, id }: { text: string; onDismiss: () => void; id: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-      className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 max-w-sm w-[90%]">
-      <div className="bg-accent/95 text-bg rounded-xl px-4 py-3 shadow-lg relative">
-        <p className="text-sm font-medium pr-6">{text}</p>
-        <button onClick={onDismiss} className="absolute top-2 right-2 w-5 h-5 rounded-full bg-black/20 flex items-center justify-center text-xs cursor-pointer hover:bg-black/30">
-          ✕
-        </button>
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-accent/95 rotate-45" />
+    <motion.div
+      key={id}
+      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+      className="mb-2"
+    >
+      <div className="bg-accent text-bg rounded-lg px-3 py-2 shadow-lg relative text-xs font-medium flex items-start gap-2">
+        <span className="flex-1">{text}</span>
+        <button onClick={onDismiss} className="shrink-0 opacity-60 hover:opacity-100 cursor-pointer text-[10px]">✕</button>
       </div>
     </motion.div>
   );
 }
 
-function useTutorialTips(guesses: { bulls: number; cows: number }[]) {
+interface TutorialTips {
+  input: { text: string; key: string } | null;
+  notepad: { text: string; key: string } | null;
+  guessArea: { text: string; key: string } | null;
+  dismiss: (key: string) => void;
+  isTutorial: boolean;
+}
+
+function useTutorialTips(guesses: { bulls: number; cows: number }[], notepadOpen: boolean): TutorialTips {
   const [isTutorial] = useState(() => {
     if (typeof window === "undefined") return false;
     const val = sessionStorage.getItem("tutorial");
@@ -348,39 +358,48 @@ function useTutorialTips(guesses: { bulls: number; cows: number }[]) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const dismiss = (key: string) => setDismissed(prev => new Set(prev).add(key));
 
-  if (!isTutorial) return { tip: null, dismiss: () => {} };
+  const empty: TutorialTips = { input: null, notepad: null, guessArea: null, dismiss, isTutorial };
+  if (!isTutorial) return empty;
 
   const lastGuess = guesses[guesses.length - 1];
   const guessCount = guesses.length;
 
-  // Determine which tip to show based on game state
-  let tipKey = "";
-  let tipText = "";
+  let input: TutorialTips["input"] = null;
+  let notepad: TutorialTips["notepad"] = null;
+  let guessArea: TutorialTips["guessArea"] = null;
 
+  // Input area tips
   if (guessCount === 0 && !dismissed.has("start")) {
-    tipKey = "start";
-    tipText = "Welcome! Enter 4 digits below and tap Confirm. Try to crack the AI's secret number!";
-  } else if (guessCount === 1 && lastGuess && !dismissed.has("first")) {
-    tipKey = "first";
-    if (lastGuess.bulls > 0 && lastGuess.cows > 0) {
-      tipText = `Nice! Filled dots = right spot, hollow dots = exists but wrong spot. Use the Notepad to remember!`;
-    } else if (lastGuess.bulls > 0) {
-      tipText = `Filled dot(s)! You have ${lastGuess.bulls} digit(s) in the correct position. Which one could it be?`;
-    } else if (lastGuess.cows > 0) {
-      tipText = `Hollow dot(s) — ${lastGuess.cows} digit(s) are in the number but in the wrong spot. Try moving them around!`;
-    } else {
-      tipText = "All grey — none of those digits are in the secret. Now you can eliminate them!";
-    }
-  } else if (guessCount === 2 && !dismissed.has("notepad")) {
-    tipKey = "notepad";
-    tipText = "Tip: Open the Notepad! Click a slot position, then tap a digit to place it there. It helps track what you know.";
-  } else if (guessCount >= 3 && lastGuess && lastGuess.bulls >= 2 && !dismissed.has("close")) {
-    tipKey = "close";
-    tipText = `Getting close! ${lastGuess.bulls} digits in the right spot. Focus on the remaining positions!`;
+    input = { text: "Enter 4 digits and tap Confirm to make your first guess!", key: "start" };
   }
 
-  if (!tipKey || dismissed.has(tipKey)) return { tip: null, dismiss: () => {} };
-  return { tip: tipText, dismiss: () => dismiss(tipKey) };
+  // Guess area tips (after results)
+  if (guessCount === 1 && lastGuess && !dismissed.has("first")) {
+    if (lastGuess.bulls > 0 && lastGuess.cows > 0) {
+      guessArea = { text: `Filled dot = right place, hollow = exists but wrong spot. You found ${lastGuess.bulls + lastGuess.cows} digits!`, key: "first" };
+    } else if (lastGuess.bulls > 0) {
+      guessArea = { text: `Filled dot! ${lastGuess.bulls} digit(s) in the correct position. But which one?`, key: "first" };
+    } else if (lastGuess.cows > 0) {
+      guessArea = { text: `Hollow dot — ${lastGuess.cows} digit(s) exist but in wrong spots. Try swapping positions!`, key: "first" };
+    } else {
+      guessArea = { text: "All grey dots — none of those digits are in the secret. Eliminate them!", key: "first" };
+    }
+  }
+
+  if (guessCount >= 3 && lastGuess && lastGuess.bulls >= 2 && !dismissed.has("close")) {
+    guessArea = { text: `${lastGuess.bulls} in the right spot — you're close! Focus on the remaining.`, key: "close" };
+  }
+
+  // Notepad tips
+  if (guessCount >= 2 && !notepadOpen && !dismissed.has("notepad_hint")) {
+    input = { text: "Tip: Tap 'Notepad' to track which digits you've found!", key: "notepad_hint" };
+  }
+
+  if (notepadOpen && !dismissed.has("notepad_use")) {
+    notepad = { text: "Tap a slot (1-4), then tap a digit below to place it. Found a digit's position? Lock it in!", key: "notepad_use" };
+  }
+
+  return { input, notepad, guessArea, dismiss, isTutorial };
 }
 
 function GamePanelTabs({
@@ -460,7 +479,7 @@ export default function GamePage() {
   const game = useGame(socket, gameId);
   const [notepadOpen, setNotepadOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
-  const tutorial = useTutorialTips(game.myGuesses);
+  const tutorial = useTutorialTips(game.myGuesses, notepadOpen);
 
   useEffect(() => {
     if (authStatus === "unauthenticated") router.push("/login");
@@ -520,11 +539,6 @@ export default function GamePage() {
         )}
       </AnimatePresence>
 
-      {/* Tutorial tips */}
-      <AnimatePresence>
-        {tutorial.tip && <TutorialTip text={tutorial.tip} onDismiss={tutorial.dismiss} />}
-      </AnimatePresence>
-
       {/* Secret Setting Modal */}
       <AnimatePresence>
         {game.status === "waiting_secrets" && !game.mySecretSet && (
@@ -578,6 +592,9 @@ export default function GamePage() {
         {/* Notepad sidebar - desktop only */}
         {game.status === "in_progress" && (
           <div className="hidden lg:block w-52 shrink-0">
+            <AnimatePresence>
+              {tutorial.notepad && <TutorialBubble id={tutorial.notepad.key} text={tutorial.notepad.text} onDismiss={() => tutorial.dismiss(tutorial.notepad!.key)} />}
+            </AnimatePresence>
             <Notepad guesses={game.myGuesses} />
           </div>
         )}
@@ -586,20 +603,31 @@ export default function GamePage() {
       {/* Bottom bar: input + notepad toggle (sticky) */}
       {game.status === "in_progress" && (
         <div className="shrink-0 px-4 pb-3 pt-2 border-t border-border bg-bg/80 backdrop-blur-sm">
+          {/* Tutorial: guess area tip */}
+          <AnimatePresence>
+            {tutorial.guessArea && <TutorialBubble id={tutorial.guessArea.key} text={tutorial.guessArea.text} onDismiss={() => tutorial.dismiss(tutorial.guessArea!.key)} />}
+          </AnimatePresence>
+
           {game.isMyTurn ? (
-            <div className="flex items-start gap-2">
-              <div className="flex-1">
-                <DigitInput onSubmit={game.submitGuess} disabled={false} />
+            <>
+              {/* Tutorial: input tip */}
+              <AnimatePresence>
+                {tutorial.input && <TutorialBubble id={tutorial.input.key} text={tutorial.input.text} onDismiss={() => tutorial.dismiss(tutorial.input!.key)} />}
+              </AnimatePresence>
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <DigitInput onSubmit={game.submitGuess} disabled={false} />
+                </div>
+                <button
+                  onClick={() => setNotepadOpen(!notepadOpen)}
+                  className={`lg:hidden shrink-0 h-10 px-3 rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-all text-xs font-medium ${
+                    notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
+                  }`}
+                >
+                  Notepad
+                </button>
               </div>
-              <button
-                onClick={() => setNotepadOpen(!notepadOpen)}
-                className={`lg:hidden shrink-0 h-10 px-3 rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-all text-xs font-medium ${
-                  notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
-                }`}
-              >
-                Notepad
-              </button>
-            </div>
+            </>
           ) : (
             <div className="flex items-center justify-center gap-2 py-2 text-text-muted">
               <div className="w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
@@ -621,6 +649,10 @@ export default function GamePage() {
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                 className="lg:hidden overflow-hidden mt-2">
                 <div className="relative">
+                  {/* Tutorial: notepad tip */}
+                  <AnimatePresence>
+                    {tutorial.notepad && <TutorialBubble id={tutorial.notepad.key} text={tutorial.notepad.text} onDismiss={() => tutorial.dismiss(tutorial.notepad!.key)} />}
+                  </AnimatePresence>
                   <button onClick={() => setNotepadOpen(false)}
                     className="absolute top-2 right-2 text-[10px] text-text-dim hover:text-text-muted cursor-pointer z-10">
                     Close
