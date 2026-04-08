@@ -10,6 +10,7 @@ import { initAIGame, getAIGuess, processAIResult, getAISecret, cleanupAIGame } f
 const DEFAULT_TURN_TIME_MS = 60_000;
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const gameTurnTimes = new Map<string, number>(); // cache turn time per game
+const gameCurrentTurns = new Map<string, 'host' | 'challenger'>(); // track actual current turn
 
 function gameRoom(id: string) { return `game:${id}`; }
 
@@ -20,6 +21,7 @@ function clearTurnTimer(gameId: string) {
 
 function startTurnTimer(io: Server, gameId: string, currentTurn: 'host' | 'challenger') {
   clearTurnTimer(gameId);
+  gameCurrentTurns.set(gameId, currentTurn);
 
   const turnTimeMs = gameTurnTimes.get(gameId) || DEFAULT_TURN_TIME_MS;
   const deadline = Date.now() + turnTimeMs;
@@ -85,6 +87,7 @@ function calculateElo(winnerRating: number, loserRating: number) {
 async function endGame(io: Server, game: IGame, winnerId: string | null, reason: string) {
   const gameId = game._id!.toString();
   clearTurnTimer(gameId);
+  gameCurrentTurns.delete(gameId);
 
   let eloChange = null;
   if (game.type === 'pvp' && game.matchType === 'ranked' && winnerId && reason === 'guessed') {
@@ -216,7 +219,7 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
       if (!game || game.status !== 'in_progress') return;
 
       const isHost = game.players.host.userId.toString() === socket.userId;
-      const currentTurn = game.currentRound % 2 === 1 ? 'host' : 'challenger';
+      const currentTurn = gameCurrentTurns.get(gameId) || 'host';
 
       // AI games: always host's turn (AI responds immediately)
       if (game.type !== 'ai') {
@@ -303,7 +306,7 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
 
 function buildGameState(game: IGame, myUserId: string, myName: string, myAvatar: string, oppName: string, oppAvatar: string = '') {
   const isHost = game.players.host.userId.toString() === myUserId;
-  const currentTurn = game.currentRound % 2 === 1 ? 'host' : 'challenger';
+  const currentTurn = gameCurrentTurns.get(game._id!.toString()) || 'host';
   return {
     gameId: game._id!.toString(),
     type: game.type,
