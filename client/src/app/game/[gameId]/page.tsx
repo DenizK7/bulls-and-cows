@@ -7,16 +7,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "@/hooks/useSocket";
 import { useGame } from "@/hooks/useGame";
 
-function TurnTimer({ deadline, isMyTurn }: { deadline: number | null; isMyTurn: boolean }) {
+function TurnTimer({ deadline, isMyTurn, frozen }: { deadline: number | null; isMyTurn: boolean; frozen?: boolean }) {
   const [remaining, setRemaining] = useState(60);
 
   useEffect(() => {
-    if (!deadline) return;
+    if (!deadline || frozen) return;
     const tick = () => setRemaining(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
     tick();
     const interval = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [deadline]);
+  }, [deadline, frozen]);
 
   const pct = deadline ? remaining / 60 : 1;
   const color = pct > 0.5 ? "text-success" : pct > 0.2 ? "text-warning" : "text-danger animate-pulse";
@@ -325,25 +325,26 @@ function PlayerPanel({
 
 function TutorialBubble({ text, onDismiss, id }: { text: string; onDismiss: () => void; id: string }) {
   return (
-    <motion.div
-      key={id}
-      initial={{ opacity: 0, y: 8, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -8, scale: 0.95 }}
-      className="mb-2"
-    >
-      <div className="bg-accent text-bg rounded-lg px-3 py-2 shadow-lg relative text-xs font-medium flex items-start gap-2">
+    <motion.div key={id} initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.95 }}
+      className="mb-2 relative z-[60]">
+      <div className="bg-accent text-bg rounded-lg px-3 py-2 shadow-lg text-xs font-medium flex items-start gap-2">
         <span className="flex-1">{text}</span>
-        <button onClick={onDismiss} className="shrink-0 opacity-60 hover:opacity-100 cursor-pointer text-[10px]">✕</button>
+        <button onClick={onDismiss} className="shrink-0 opacity-60 hover:opacity-100 cursor-pointer text-[10px] font-bold">OK</button>
       </div>
     </motion.div>
   );
+}
+
+function TutorialOverlay() {
+  return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="fixed inset-0 z-[55] bg-black/50 pointer-events-none" />;
 }
 
 interface TutorialTips {
   input: { text: string; key: string } | null;
   notepad: { text: string; key: string } | null;
   guessArea: { text: string; key: string } | null;
+  hasActiveTip: boolean;
   dismiss: (key: string) => void;
   isTutorial: boolean;
 }
@@ -358,48 +359,60 @@ function useTutorialTips(guesses: { bulls: number; cows: number }[], notepadOpen
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const dismiss = (key: string) => setDismissed(prev => new Set(prev).add(key));
 
-  const empty: TutorialTips = { input: null, notepad: null, guessArea: null, dismiss, isTutorial };
+  const empty: TutorialTips = { input: null, notepad: null, guessArea: null, hasActiveTip: false, dismiss, isTutorial };
   if (!isTutorial) return empty;
 
-  const lastGuess = guesses[guesses.length - 1];
   const guessCount = guesses.length;
+
+  // Track first occurrences
+  const hadBull = guesses.some(g => g.bulls > 0);
+  const hadCow = guesses.some(g => g.cows > 0);
+  const hadMiss = guesses.some(g => g.bulls === 0 && g.cows === 0);
+  const lastGuess = guesses[guessCount - 1];
 
   let input: TutorialTips["input"] = null;
   let notepad: TutorialTips["notepad"] = null;
   let guessArea: TutorialTips["guessArea"] = null;
 
-  // Input area tips
+  // 1) First guess prompt
   if (guessCount === 0 && !dismissed.has("start")) {
     input = { text: "Enter 4 digits and tap Confirm to make your first guess!", key: "start" };
   }
 
-  // Guess area tips (after results)
-  if (guessCount === 1 && lastGuess && !dismissed.has("first")) {
-    if (lastGuess.bulls > 0 && lastGuess.cows > 0) {
-      guessArea = { text: `Filled dot = right place, hollow = exists but wrong spot. You found ${lastGuess.bulls + lastGuess.cows} digits!`, key: "first" };
-    } else if (lastGuess.bulls > 0) {
-      guessArea = { text: `Filled dot! ${lastGuess.bulls} digit(s) in the correct position. But which one?`, key: "first" };
-    } else if (lastGuess.cows > 0) {
-      guessArea = { text: `Hollow dot — ${lastGuess.cows} digit(s) exist but in wrong spots. Try swapping positions!`, key: "first" };
-    } else {
-      guessArea = { text: "All grey dots — none of those digits are in the secret. Eliminate them!", key: "first" };
-    }
+  // 2) First bull ever
+  if (hadBull && !dismissed.has("bull_explain")) {
+    const g = guesses.find(g => g.bulls > 0)!;
+    guessArea = { text: `● Filled dot = digit in the RIGHT position! You have ${g.bulls}. Try to figure out which digit(s).`, key: "bull_explain" };
   }
 
-  if (guessCount >= 3 && lastGuess && lastGuess.bulls >= 2 && !dismissed.has("close")) {
-    guessArea = { text: `${lastGuess.bulls} in the right spot — you're close! Focus on the remaining.`, key: "close" };
+  // 3) First cow ever (only if bull explanation already dismissed)
+  if (hadCow && dismissed.has("bull_explain") && !dismissed.has("cow_explain")) {
+    const g = guesses.find(g => g.cows > 0)!;
+    guessArea = { text: `○ Hollow dot = digit EXISTS but in the WRONG spot. You have ${g.cows}. Try swapping positions!`, key: "cow_explain" };
   }
 
-  // Notepad tips
-  if (guessCount >= 2 && !notepadOpen && !dismissed.has("notepad_hint")) {
-    input = { text: "Tip: Tap 'Notepad' to track which digits you've found!", key: "notepad_hint" };
+  // 4) First all-miss (only if bull+cow done)
+  if (hadMiss && dismissed.has("bull_explain") && dismissed.has("cow_explain") && !dismissed.has("miss_explain")) {
+    guessArea = { text: "All grey = none of those digits are in the number. You can safely eliminate them!", key: "miss_explain" };
   }
 
+  // 5) Notepad hint after 2 guesses
+  if (guessCount >= 2 && !notepadOpen && !guessArea && !dismissed.has("notepad_hint")) {
+    input = { text: "Tip: Tap 'Notepad' to track your findings! Place known digits into slots.", key: "notepad_hint" };
+  }
+
+  // 6) Notepad usage on first open
   if (notepadOpen && !dismissed.has("notepad_use")) {
-    notepad = { text: "Tap a slot (1-4), then tap a digit below to place it. Found a digit's position? Lock it in!", key: "notepad_use" };
+    notepad = { text: "Tap a slot (1-4) to select it, then tap a digit to place it there. Known positions turn green!", key: "notepad_use" };
   }
 
-  return { input, notepad, guessArea, dismiss, isTutorial };
+  // 7) Getting close
+  if (guessCount >= 3 && lastGuess && lastGuess.bulls >= 2 && !guessArea && !dismissed.has("close")) {
+    guessArea = { text: `${lastGuess.bulls} in the right spot — almost there! Focus on the remaining positions.`, key: "close" };
+  }
+
+  const hasActiveTip = !!(input || notepad || guessArea);
+  return { input, notepad, guessArea, hasActiveTip, dismiss, isTutorial };
 }
 
 function GamePanelTabs({
@@ -505,7 +518,7 @@ export default function GamePage() {
           <span className="text-bull">B</span><span className="text-text-dim">&</span><span className="text-cow">C</span>
         </h1>
         <div className="flex-1 flex justify-center">
-          {game.status === "in_progress" && <TurnTimer deadline={game.turnDeadline} isMyTurn={game.isMyTurn} />}
+          {game.status === "in_progress" && <TurnTimer deadline={game.turnDeadline} isMyTurn={game.isMyTurn} frozen={tutorial.hasActiveTip} />}
         </div>
         {game.status !== "completed" && (
           <button onClick={() => setQuitConfirm(true)}
@@ -537,6 +550,11 @@ export default function GamePage() {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Tutorial spotlight overlay */}
+      <AnimatePresence>
+        {tutorial.hasActiveTip && <TutorialOverlay />}
       </AnimatePresence>
 
       {/* Secret Setting Modal */}
@@ -602,7 +620,7 @@ export default function GamePage() {
 
       {/* Bottom bar: input + notepad toggle (sticky) */}
       {game.status === "in_progress" && (
-        <div className="shrink-0 px-4 pb-3 pt-2 border-t border-border bg-bg/80 backdrop-blur-sm">
+        <div className={`shrink-0 px-4 pb-3 pt-2 border-t border-border bg-bg/80 backdrop-blur-sm ${tutorial.hasActiveTip ? "relative z-[60]" : ""}`}>
           {/* Tutorial: guess area tip */}
           <AnimatePresence>
             {tutorial.guessArea && <TutorialBubble id={tutorial.guessArea.key} text={tutorial.guessArea.text} onDismiss={() => tutorial.dismiss(tutorial.guessArea!.key)} />}
