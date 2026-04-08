@@ -323,6 +323,66 @@ function PlayerPanel({
   );
 }
 
+function TutorialTip({ text, onDismiss }: { text: string; onDismiss: () => void }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+      className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 max-w-sm w-[90%]">
+      <div className="bg-accent/95 text-bg rounded-xl px-4 py-3 shadow-lg relative">
+        <p className="text-sm font-medium pr-6">{text}</p>
+        <button onClick={onDismiss} className="absolute top-2 right-2 w-5 h-5 rounded-full bg-black/20 flex items-center justify-center text-xs cursor-pointer hover:bg-black/30">
+          ✕
+        </button>
+        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-accent/95 rotate-45" />
+      </div>
+    </motion.div>
+  );
+}
+
+function useTutorialTips(guesses: { bulls: number; cows: number }[]) {
+  const [isTutorial] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const val = sessionStorage.getItem("tutorial");
+    if (val) { sessionStorage.removeItem("tutorial"); return true; }
+    return false;
+  });
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const dismiss = (key: string) => setDismissed(prev => new Set(prev).add(key));
+
+  if (!isTutorial) return { tip: null, dismiss: () => {} };
+
+  const lastGuess = guesses[guesses.length - 1];
+  const guessCount = guesses.length;
+
+  // Determine which tip to show based on game state
+  let tipKey = "";
+  let tipText = "";
+
+  if (guessCount === 0 && !dismissed.has("start")) {
+    tipKey = "start";
+    tipText = "Welcome! Enter 4 digits below and tap Confirm. Try to crack the AI's secret number!";
+  } else if (guessCount === 1 && lastGuess && !dismissed.has("first")) {
+    tipKey = "first";
+    if (lastGuess.bulls > 0 && lastGuess.cows > 0) {
+      tipText = `Nice! Filled dots = right spot, hollow dots = exists but wrong spot. Use the Notepad to remember!`;
+    } else if (lastGuess.bulls > 0) {
+      tipText = `Filled dot(s)! You have ${lastGuess.bulls} digit(s) in the correct position. Which one could it be?`;
+    } else if (lastGuess.cows > 0) {
+      tipText = `Hollow dot(s) — ${lastGuess.cows} digit(s) are in the number but in the wrong spot. Try moving them around!`;
+    } else {
+      tipText = "All grey — none of those digits are in the secret. Now you can eliminate them!";
+    }
+  } else if (guessCount === 2 && !dismissed.has("notepad")) {
+    tipKey = "notepad";
+    tipText = "Tip: Open the Notepad! Click a slot position, then tap a digit to place it there. It helps track what you know.";
+  } else if (guessCount >= 3 && lastGuess && lastGuess.bulls >= 2 && !dismissed.has("close")) {
+    tipKey = "close";
+    tipText = `Getting close! ${lastGuess.bulls} digits in the right spot. Focus on the remaining positions!`;
+  }
+
+  if (!tipKey || dismissed.has(tipKey)) return { tip: null, dismiss: () => {} };
+  return { tip: tipText, dismiss: () => dismiss(tipKey) };
+}
+
 function GamePanelTabs({
   myName, myAvatar, myGuesses, mySecretSet, mySecret, isWinner,
   opponentName, opponentAvatar, opponentGuesses, opponentSecretSet, opponentWon,
@@ -400,6 +460,7 @@ export default function GamePage() {
   const game = useGame(socket, gameId);
   const [notepadOpen, setNotepadOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
+  const tutorial = useTutorialTips(game.myGuesses);
 
   useEffect(() => {
     if (authStatus === "unauthenticated") router.push("/login");
@@ -457,6 +518,11 @@ export default function GamePage() {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Tutorial tips */}
+      <AnimatePresence>
+        {tutorial.tip && <TutorialTip text={tutorial.tip} onDismiss={tutorial.dismiss} />}
       </AnimatePresence>
 
       {/* Secret Setting Modal */}
