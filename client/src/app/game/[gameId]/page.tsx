@@ -173,10 +173,13 @@ function DigitInput({
 }) {
   const [digits, setDigits] = useState(["", "", "", ""]);
   const filledCount = digits.filter((d) => d !== "").length;
-  const isValid = filledCount === 4;
+  const hasUniqueDigits = new Set(digits.filter((d) => d !== "")).size === filledCount;
+  const isValid = filledCount === 4 && hasUniqueDigits;
+  const usedDigits = new Set(digits.filter((d) => d !== ""));
 
   const addDigit = (d: string) => {
     setDigits((prev) => {
+      if (prev.filter((x) => x !== "").includes(d)) return prev; // no duplicates
       const idx = prev.findIndex((x) => x === "");
       if (idx === -1) return prev;
       const next = [...prev];
@@ -208,7 +211,7 @@ function DigitInput({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (disabled) return;
-      if (/^\d$/.test(e.key)) { addDigit(e.key); }
+      if (/^\d$/.test(e.key)) { addDigit(e.key); } // addDigit already blocks duplicates
       else if (e.key === "Backspace") { e.preventDefault(); removeDigit(); }
       else if (e.key === "Enter") {
         setDigits((prev) => {
@@ -240,7 +243,7 @@ function DigitInput({
       {/* Numpad */}
       <div className="grid grid-cols-3 gap-1.5 w-full max-w-[210px]">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-          <button key={n} type="button" onClick={() => addDigit(String(n))} disabled={disabled || isValid}
+          <button key={n} type="button" onClick={() => addDigit(String(n))} disabled={disabled || isValid || usedDigits.has(String(n))}
             className="h-11 bg-bg-elevated border border-border rounded-lg font-mono text-lg font-bold hover:bg-bg-hover active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
             {n}
           </button>
@@ -251,7 +254,7 @@ function DigitInput({
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33z" />
           </svg>
         </button>
-        <button type="button" onClick={() => addDigit("0")} disabled={disabled || isValid}
+        <button type="button" onClick={() => addDigit("0")} disabled={disabled || isValid || usedDigits.has("0")}
           className="h-11 bg-bg-elevated border border-border rounded-lg font-mono text-lg font-bold hover:bg-bg-hover active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
           0
         </button>
