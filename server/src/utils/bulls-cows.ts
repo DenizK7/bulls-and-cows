@@ -5,11 +5,29 @@ export function evaluate(guess: string, secret: string): EvaluationResult {
   let bulls = 0;
   let cows = 0;
 
+  // Track which secret digits are already matched as bulls
+  const secretUsed = new Array(DIGIT_COUNT).fill(false);
+  const guessUsed = new Array(DIGIT_COUNT).fill(false);
+
+  // First pass: count bulls (exact matches)
   for (let i = 0; i < DIGIT_COUNT; i++) {
     if (guess[i] === secret[i]) {
       bulls++;
-    } else if (secret.includes(guess[i])) {
-      cows++;
+      secretUsed[i] = true;
+      guessUsed[i] = true;
+    }
+  }
+
+  // Second pass: count cows (right digit, wrong position)
+  for (let i = 0; i < DIGIT_COUNT; i++) {
+    if (guessUsed[i]) continue;
+    for (let j = 0; j < DIGIT_COUNT; j++) {
+      if (secretUsed[j]) continue;
+      if (guess[i] === secret[j]) {
+        cows++;
+        secretUsed[j] = true;
+        break;
+      }
     }
   }
 

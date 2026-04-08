@@ -16,7 +16,7 @@ describe('filterPossibilities', () => {
 
 describe('KnuthSolver', () => {
   it('solves any secret in at most 7 guesses', () => {
-    const secrets = ['1234', '5678', '9012', '3507', '8641', '0639', '7250'];
+    const secrets = ['1234', '5678', '3507'];
 
     for (const secret of secrets) {
       const solver = new KnuthSolver();

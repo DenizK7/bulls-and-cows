@@ -9,9 +9,15 @@ import { useGame } from "@/hooks/useGame";
 
 function TurnTimer({ deadline, isMyTurn }: { deadline: number | null; isMyTurn: boolean }) {
   const [remaining, setRemaining] = useState(60);
+  const [elapsed, setElapsed] = useState(0);
+  const [turnStart] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!deadline) return;
+    if (!deadline) {
+      // AI mode - count up
+      const interval = setInterval(() => setElapsed(Math.floor((Date.now() - turnStart) / 1000)), 200);
+      return () => clearInterval(interval);
+    }
     const tick = () => {
       const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setRemaining(left);
@@ -19,9 +25,20 @@ function TurnTimer({ deadline, isMyTurn }: { deadline: number | null; isMyTurn: 
     tick();
     const interval = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [deadline]);
+  }, [deadline, turnStart]);
 
-  if (!deadline) return null;
+  // No deadline = AI game, show elapsed time
+  if (!deadline) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-accent/20 bg-bg-card">
+        <div className={`w-2 h-2 rounded-full ${isMyTurn ? "bg-accent animate-pulse" : "bg-text-dim animate-pulse"}`} />
+        <span className="text-sm font-medium text-text-muted">
+          {isMyTurn ? "Your turn" : "AI is thinking..."}
+        </span>
+        <span className="font-mono text-sm text-text-dim tabular-nums">{elapsed}s</span>
+      </div>
+    );
+  }
 
   const pct = remaining / 60;
   const color =
@@ -51,6 +68,129 @@ function TurnTimer({ deadline, isMyTurn }: { deadline: number | null; isMyTurn: 
         <span className={`font-mono font-bold text-lg tabular-nums ${color}`}>
           {remaining}s
         </span>
+      </div>
+    </div>
+  );
+}
+
+function Notepad({
+  guesses,
+}: {
+  guesses: { guess: string; bulls: number; cows: number }[];
+}) {
+  const [slots, setSlots] = useState(["", "", "", ""]);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+
+  const digitStatus = (() => {
+    const status: Record<string, "unknown" | "exists" | "eliminated"> = {};
+    for (let d = 0; d <= 9; d++) status[String(d)] = "unknown";
+    for (const g of guesses) {
+      if (g.bulls === 0 && g.cows === 0) {
+        for (const d of g.guess) status[d] = "eliminated";
+      }
+    }
+    for (const g of guesses) {
+      if (g.bulls + g.cows > 0) {
+        for (const d of g.guess) {
+          if (status[d] !== "eliminated") status[d] = "exists";
+        }
+      }
+    }
+    return status;
+  })();
+
+  const placeDigit = (digit: string) => {
+    const n = [...slots];
+    if (selectedSlot !== null) {
+      // Place in selected slot
+      n[selectedSlot] = n[selectedSlot] === digit ? "" : digit;
+      setSlots(n);
+      setSelectedSlot(null);
+    } else {
+      // Place in first empty slot
+      const emptyIdx = n.findIndex((s) => s === "");
+      if (emptyIdx !== -1) { n[emptyIdx] = digit; setSlots(n); }
+    }
+  };
+
+  const tapSlot = (i: number) => {
+    if (slots[i]) {
+      // Clear if filled
+      const n = [...slots]; n[i] = ""; setSlots(n);
+      setSelectedSlot(null);
+    } else {
+      // Select for next digit placement
+      setSelectedSlot(selectedSlot === i ? null : i);
+    }
+  };
+
+  return (
+    <div className="bg-bg-card border border-border rounded-xl p-3 w-full">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] text-text-dim uppercase tracking-wider font-medium">Notepad</span>
+      </div>
+
+      {/* 4 note slots + clear button */}
+      <div className="flex gap-1.5 mb-2 justify-center items-center">
+        {slots.map((s, i) => (
+          <button
+            key={i}
+            onClick={() => tapSlot(i)}
+            className={`w-10 h-11 rounded-lg border-2 flex items-center justify-center font-mono text-lg font-bold transition-all cursor-pointer ${
+              selectedSlot === i
+                ? "border-accent bg-accent/10 text-accent animate-pulse"
+                : s
+                  ? "border-success/50 bg-success/10 text-success"
+                  : "border-border border-dashed text-text-dim hover:border-border-light"
+            }`}
+          >
+            {s || <span className="text-xs opacity-50">{i + 1}</span>}
+          </button>
+        ))}
+        <button
+          onClick={() => { setSlots(["", "", "", ""]); setSelectedSlot(null); }}
+          className="h-11 px-2 rounded-lg border border-border text-[10px] text-text-dim hover:text-danger hover:border-danger/30 transition-all cursor-pointer flex items-center justify-center"
+        >
+          Clear
+        </button>
+      </div>
+
+      {selectedSlot !== null && (
+        <p className="text-[10px] text-accent text-center mb-2">
+          Slot {selectedSlot + 1} selected — tap a digit below
+        </p>
+      )}
+
+      {/* 0-9 digit tracker */}
+      <div className="flex flex-wrap gap-1 justify-center">
+        {Array.from({ length: 10 }, (_, d) => String(d)).map((d) => {
+          const s = digitStatus[d];
+          const inSlot = slots.includes(d);
+          const bg =
+            inSlot
+              ? "bg-success/20 text-success border-success/40"
+              : s === "eliminated"
+                ? "bg-danger/10 text-danger/50 border-danger/20 line-through"
+                : s === "exists"
+                  ? "bg-cow/15 text-cow border-cow/30"
+                  : "bg-bg-elevated text-text-muted border-border";
+
+          return (
+            <button
+              key={d}
+              onClick={() => placeDigit(d)}
+              className={`w-8 h-8 rounded-md border text-xs font-bold font-mono cursor-pointer transition-all hover:brightness-125 ${bg}`}
+            >
+              {d}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-center gap-3 mt-2 text-[9px] text-text-dim">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cow inline-block" />maybe</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success inline-block" />placed</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger/50 inline-block" />nope</span>
       </div>
     </div>
   );
@@ -199,55 +339,105 @@ function PlayerPanel({
   mySecret?: string;
 }) {
   return (
-    <div className="flex-1 flex flex-col min-w-0">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
-              isMe ? "bg-accent/20 text-accent" : "bg-bg-elevated text-text-muted"
-            }`}
-          >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="w-8 h-8 rounded-full" />
-            ) : (
-              label[0]?.toUpperCase()
-            )}
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-medium truncate">
-              {label} {isMe && <span className="text-accent text-xs">(you)</span>}
-            </div>
-            <div className="text-xs text-text-dim">
-              {won ? "Won!" : secretSet ? `${guesses.length} guesses` : "Setting secret..."}
-            </div>
-          </div>
+    <div className="flex-1 flex flex-col min-w-0 p-2">
+      {/* Compact header */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+          isMe ? "bg-accent/20 text-accent" : "bg-bg-elevated text-text-muted"
+        }`}>
+          {avatarUrl ? <img src={avatarUrl} alt="" className="w-6 h-6 rounded-full" /> : label[0]?.toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium truncate">{label}</div>
         </div>
         {isMe && mySecret && (
-          <div className="text-right">
-            <div className="text-[10px] text-text-dim uppercase tracking-wider">Your secret</div>
-            <div className="font-mono font-bold text-accent text-sm tracking-widest">{mySecret}</div>
-          </div>
+          <div className="font-mono text-[10px] font-bold text-accent">{mySecret}</div>
         )}
+        <span className="text-[10px] text-text-dim">{guesses.length}</span>
       </div>
 
-      <div className="flex-1 bg-bg-elevated/50 rounded-xl p-3 overflow-y-auto max-h-[400px]">
+      {/* Guess list */}
+      <div className="flex-1 overflow-y-auto">
         {guesses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-20 text-text-dim text-sm gap-2">
-            <span>No guesses yet</span>
-            <div className="flex flex-col items-start gap-1 text-[11px]">
-              <span>🎯 = doğru rakam, doğru yer</span>
-              <span>🔄 = doğru rakam, yanlış yer</span>
-              <span>✕ = hiçbiri yok</span>
-            </div>
+          <div className="flex items-center justify-center h-16 text-text-dim text-xs">
+            {isMe ? "Your guesses" : "Their guesses"}
           </div>
         ) : (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             {guesses.map((g, i) => (
               <GuessRow key={i} index={i} guess={g.guess} bulls={g.bulls} cows={g.cows} />
             ))}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function GamePanelTabs({
+  myName, myAvatar, myGuesses, mySecretSet, mySecret, isWinner,
+  opponentName, opponentAvatar, opponentGuesses, opponentSecretSet, opponentWon,
+  isMyTurn,
+}: {
+  myName: string; myAvatar: string;
+  myGuesses: { guess: string; bulls: number; cows: number }[];
+  mySecretSet: boolean; mySecret?: string; isWinner: boolean;
+  opponentName: string; opponentAvatar: string;
+  opponentGuesses: { guess: string; bulls: number; cows: number }[];
+  opponentSecretSet: boolean; opponentWon: boolean;
+  isMyTurn: boolean;
+}) {
+  const [viewTab, setViewTab] = useState<"me" | "opponent">(isMyTurn ? "me" : "opponent");
+
+  // Auto-switch to active player's tab when turn changes
+  useEffect(() => {
+    setViewTab(isMyTurn ? "me" : "opponent");
+  }, [isMyTurn]);
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* Tab bar */}
+      <div className="flex bg-bg-card rounded-xl p-1 border border-border mb-3">
+        <button
+          onClick={() => setViewTab("me")}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            viewTab === "me" ? "bg-bg-elevated text-text shadow-sm" : "text-text-muted hover:text-text"
+          }`}
+        >
+          {myAvatar ? <img src={myAvatar} alt="" className="w-5 h-5 rounded-full" /> : null}
+          You ({myGuesses.length})
+          {isMyTurn && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />}
+        </button>
+        <button
+          onClick={() => setViewTab("opponent")}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            viewTab === "opponent" ? "bg-bg-elevated text-text shadow-sm" : "text-text-muted hover:text-text"
+          }`}
+        >
+          {opponentAvatar ? <img src={opponentAvatar} alt="" className="w-5 h-5 rounded-full" /> : null}
+          {opponentName} ({opponentGuesses.length})
+          {!isMyTurn && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />}
+        </button>
+      </div>
+
+      {/* Active panel */}
+      <AnimatePresence mode="wait">
+        {viewTab === "me" ? (
+          <motion.div key="me" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex-1 min-h-0">
+            <PlayerPanel
+              label={myName} avatarUrl={myAvatar} isMe={true}
+              guesses={myGuesses} secretSet={mySecretSet} won={isWinner} mySecret={mySecret}
+            />
+          </motion.div>
+        ) : (
+          <motion.div key="opp" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex-1 min-h-0">
+            <PlayerPanel
+              label={opponentName} avatarUrl={opponentAvatar} isMe={false}
+              guesses={opponentGuesses} secretSet={opponentSecretSet} won={opponentWon}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -259,10 +449,16 @@ export default function GamePage() {
   const gameId = params.gameId as string;
   const { socket, connected } = useSocket();
   const game = useGame(socket, gameId);
+  const [notepadOpen, setNotepadOpen] = useState(false);
+  const [quitConfirm, setQuitConfirm] = useState(false);
 
   useEffect(() => {
     if (authStatus === "unauthenticated") router.push("/login");
   }, [authStatus, router]);
+
+  const userId = (session as { userId?: string })?.userId;
+  const isWinner = game.result?.winnerId === userId;
+  const isDraw = game.result?.reason === "draw";
 
   if (!game.gameId || !game.opponent) {
     return (
@@ -272,179 +468,178 @@ export default function GamePage() {
     );
   }
 
-  const userId = (session as { userId?: string })?.userId;
-  const isWinner = game.result?.winnerId === userId;
-  const isDraw = game.result?.reason === "draw";
-
   return (
-    <div className="flex-1 flex flex-col px-4 py-4 max-w-4xl mx-auto w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold">
-            <span className="text-bull">B</span>
-            <span className="text-text-dim">&</span>
-            <span className="text-cow">C</span>
-          </h1>
-          <span className="text-text-dim text-sm">Round {game.currentRound}</span>
+    <div className="flex-1 flex flex-col h-full max-w-5xl mx-auto w-full">
+      {/* Top bar: timer takes center stage */}
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between shrink-0">
+        <h1 className="text-lg font-bold shrink-0">
+          <span className="text-bull">B</span><span className="text-text-dim">&</span><span className="text-cow">C</span>
+        </h1>
+        <div className="flex-1 flex justify-center">
+          {game.status === "in_progress" && <TurnTimer deadline={game.turnDeadline} isMyTurn={game.isMyTurn} />}
         </div>
-        <div className="flex items-center gap-2">
-          {game.status !== "completed" && (
-            <button
-              onClick={() => {
-                game.quitGame();
-                router.push("/lobby");
-              }}
-              className="text-xs text-text-dim hover:text-danger transition-colors cursor-pointer px-3 py-1.5 rounded-lg hover:bg-danger/10"
-            >
-              Quit
-            </button>
-          )}
-        </div>
+        {game.status !== "completed" && (
+          <button onClick={() => setQuitConfirm(true)}
+            className="shrink-0 text-xs text-text-dim border border-border hover:border-danger/30 hover:text-danger hover:bg-danger/5 transition-all cursor-pointer px-3 py-1.5 rounded-lg">
+            Leave
+          </button>
+        )}
       </div>
+
+      {/* Quit confirmation modal */}
+      <AnimatePresence>
+        {quitConfirm && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+              className="bg-bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center">
+              <h3 className="text-lg font-bold mb-2">Leave Game?</h3>
+              <p className="text-text-muted text-sm mb-5">The game is still in progress. You will forfeit if you leave.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setQuitConfirm(false)}
+                  className="flex-1 py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl hover:bg-bg-hover cursor-pointer">
+                  Stay
+                </button>
+                <button onClick={() => { game.quitGame(); router.push("/lobby"); }}
+                  className="flex-1 py-2.5 bg-danger text-white font-medium rounded-xl hover:brightness-110 cursor-pointer">
+                  Leave
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Secret Setting Modal */}
       <AnimatePresence>
         {game.status === "waiting_secrets" && !game.mySecretSet && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center"
-            >
-              <div className="text-3xl mb-2">🔒</div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              className="bg-bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center">
               <h2 className="text-xl font-bold mb-1">Choose Your Secret</h2>
               <p className="text-text-muted text-sm mb-6">Pick 4 unique digits for your opponent to guess</p>
               <DigitInput onSubmit={game.setSecret} disabled={false} />
             </motion.div>
           </motion.div>
         )}
-
         {game.status === "waiting_secrets" && game.mySecretSet && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <motion.div className="bg-bg-card border border-accent/20 rounded-2xl p-8 max-w-sm w-full text-center">
               <div className="text-accent text-lg font-medium mb-2">Secret Set!</div>
               <div className="font-mono text-2xl font-bold text-accent tracking-[0.3em] mb-3">{game.mySecret}</div>
-              <p className="text-text-muted text-sm">
-                {game.opponentSecretSet ? "Starting..." : "Waiting for opponent..."}
-              </p>
-              {!game.opponentSecretSet && (
-                <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mt-3" />
-              )}
+              <p className="text-text-muted text-sm">{game.opponentSecretSet ? "Starting..." : "Waiting for opponent..."}</p>
+              {!game.opponentSecretSet && <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mt-3" />}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Split Screen Game Board - active turn panel grows */}
-      <div className="flex-1 flex flex-col sm:flex-row gap-3">
+      {/* Split screen - both always visible, active panel grows */}
+      <div className="flex-1 flex min-h-0 px-3 sm:px-4 gap-2 sm:gap-3">
+        {/* My panel */}
         <motion.div
           animate={{ flex: game.isMyTurn ? 3 : 2 }}
-          transition={{ duration: 0.3 }}
-          className="min-w-0"
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          className={`min-w-0 flex flex-col rounded-xl border transition-colors duration-300 ${game.isMyTurn ? "border-accent/20 bg-bg-card/50" : "border-border/50"}`}
         >
           <PlayerPanel
-            label={session?.user?.name || "You"}
-            avatarUrl={session?.user?.image || ""}
-            isMe={true}
-            guesses={game.myGuesses}
-            secretSet={game.mySecretSet}
-            won={isWinner}
-            mySecret={game.mySecret || undefined}
+            label={session?.user?.name || "You"} avatarUrl={session?.user?.image || ""}
+            isMe={true} guesses={game.myGuesses} secretSet={game.mySecretSet} won={isWinner} mySecret={game.mySecret || undefined}
           />
         </motion.div>
 
         {/* Divider */}
-        <div className="hidden sm:block w-px bg-border relative flex-shrink-0">
-          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 bg-bg px-1 py-2">
-            <span className="text-text-dim text-xs font-mono">VS</span>
-          </div>
+        <div className="w-px bg-border relative shrink-0 my-2">
+          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 bg-bg text-text-dim text-[10px] font-mono px-1 py-1">VS</div>
         </div>
-        <div className="sm:hidden h-px bg-border" />
 
+        {/* Opponent panel */}
         <motion.div
           animate={{ flex: game.isMyTurn ? 2 : 3 }}
-          transition={{ duration: 0.3 }}
-          className="min-w-0"
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          className={`min-w-0 flex flex-col rounded-xl border transition-colors duration-300 ${!game.isMyTurn ? "border-accent/20 bg-bg-card/50" : "border-border/50"}`}
         >
           <PlayerPanel
-            label={game.opponent.displayName}
-            avatarUrl={game.opponent.avatarUrl}
-            isMe={false}
-            guesses={game.opponentGuesses}
-            secretSet={game.opponentSecretSet}
+            label={game.opponent.displayName} avatarUrl={game.opponent.avatarUrl}
+            isMe={false} guesses={game.opponentGuesses} secretSet={game.opponentSecretSet}
             won={game.result?.winnerId === game.opponent.userId}
           />
         </motion.div>
+
+        {/* Notepad sidebar - desktop only */}
+        {game.status === "in_progress" && (
+          <div className="hidden lg:block w-52 shrink-0">
+            <Notepad guesses={game.myGuesses} />
+          </div>
+        )}
       </div>
 
-      {/* Timer + Guess Input */}
+      {/* Bottom bar: input + notepad toggle (sticky) */}
       {game.status === "in_progress" && (
-        <div className="mt-4 flex flex-col items-center gap-3">
-          <TurnTimer deadline={game.turnDeadline} isMyTurn={game.isMyTurn} />
-
+        <div className="shrink-0 px-4 pb-3 pt-2 border-t border-border bg-bg/80 backdrop-blur-sm">
           {game.isMyTurn ? (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-bg-card border border-accent/20 rounded-2xl p-5 text-center w-full"
-            >
-              <p className="text-accent text-sm font-medium mb-3">Your turn — enter your guess</p>
-              <DigitInput onSubmit={game.submitGuess} disabled={false} />
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-bg-card border border-border rounded-2xl p-5 text-center w-full"
-            >
-              <div className="flex items-center justify-center gap-2 text-text-muted">
-                <div className="w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">Waiting for opponent...</span>
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <DigitInput onSubmit={game.submitGuess} disabled={false} />
               </div>
-            </motion.div>
+              <button
+                onClick={() => setNotepadOpen(!notepadOpen)}
+                className={`lg:hidden shrink-0 h-10 px-3 rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-all text-xs font-medium ${
+                  notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
+                }`}
+              >
+                Notepad
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 py-2 text-text-muted">
+              <div className="w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">{game.opponent?.displayName} is thinking...</span>
+              <button
+                onClick={() => setNotepadOpen(!notepadOpen)}
+                className={`lg:hidden ml-2 shrink-0 h-8 px-2.5 rounded-lg border flex items-center justify-center cursor-pointer transition-all text-xs font-medium ${
+                  notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
+                }`}
+              >
+                Notepad
+              </button>
+            </div>
           )}
+
+          {/* Mobile notepad drawer */}
+          <AnimatePresence>
+            {notepadOpen && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                className="lg:hidden overflow-hidden mt-2">
+                <div className="relative">
+                  <button onClick={() => setNotepadOpen(false)}
+                    className="absolute top-2 right-2 text-[10px] text-text-dim hover:text-text-muted cursor-pointer z-10">
+                    Close
+                  </button>
+                  <Notepad guesses={game.myGuesses} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
-      {/* Game Over */}
+      {/* Game Over Modal */}
       <AnimatePresence>
         {game.status === "completed" && game.result && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          >
-            <motion.div
-              initial={{ y: 30 }}
-              animate={{ y: 0 }}
-              className="bg-bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center"
-            >
-              <div className="text-5xl mb-3">
-                {isDraw ? "🤝" : isWinner ? "🎉" : "😔"}
-              </div>
-              <h2 className="text-2xl font-bold mb-1">
-                {isDraw ? "Draw!" : isWinner ? "You Won!" : "You Lost"}
-              </h2>
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div initial={{ y: 30 }} animate={{ y: 0 }}
+              className="bg-bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center">
+              <div className="text-5xl mb-3">{isDraw ? "🤝" : isWinner ? "🎉" : "😔"}</div>
+              <h2 className="text-2xl font-bold mb-1">{isDraw ? "Draw!" : isWinner ? "You Won!" : "You Lost"}</h2>
               <p className="text-text-muted text-sm mb-4">
-                {game.result.reason === "opponent_quit"
-                  ? "Opponent quit the game"
-                  : game.result.reason === "timeout"
-                    ? isWinner ? "Opponent ran out of time!" : "You ran out of time!"
-                    : `Finished in ${game.myGuesses.length} guesses`}
+                {game.result.reason === "opponent_quit" ? "Opponent quit the game"
+                  : game.result.reason === "timeout" ? (isWinner ? "Opponent ran out of time!" : "You ran out of time!")
+                  : `Finished in ${game.myGuesses.length} guesses`}
               </p>
-
               <div className="flex justify-center gap-6 mb-6 text-sm">
                 <div>
                   <div className="text-text-dim">Your secret</div>
@@ -459,21 +654,13 @@ export default function GamePage() {
                   </div>
                 </div>
               </div>
-
               {game.result.eloChange && (
                 <div className={`text-sm font-medium mb-4 ${isWinner ? "text-success" : "text-danger"}`}>
-                  ELO {isWinner ? "+" : ""}
-                  {game.myRole === "host" ? game.result.eloChange.host : game.result.eloChange.challenger}
+                  ELO {isWinner ? "+" : ""}{game.myRole === "host" ? game.result.eloChange.host : game.result.eloChange.challenger}
                 </div>
               )}
-
-              <button
-                onClick={() => {
-                  game.reset();
-                  router.push("/lobby");
-                }}
-                className="w-full py-3 bg-accent text-bg font-semibold rounded-xl hover:brightness-110 transition-all cursor-pointer active:scale-[0.98]"
-              >
+              <button onClick={() => { game.reset(); router.push("/lobby"); }}
+                className="w-full py-3 bg-accent text-bg font-semibold rounded-xl hover:brightness-110 transition-all cursor-pointer active:scale-[0.98]">
                 Back to Lobby
               </button>
             </motion.div>

@@ -30,6 +30,9 @@ function startTurnTimer(io: Server, gameId: string, currentTurn: 'host' | 'chall
       const game = await Game.findById(gameId);
       if (!game || game.status !== 'in_progress') return;
 
+      // AI never loses by timeout - only real players do
+      if (game.type === 'ai') return;
+
       // The player whose turn it is loses by timeout
       const loserId = currentTurn === 'host'
         ? game.players.host.userId.toString()
@@ -170,12 +173,8 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
 
       if (bothSet) {
         io.to(gameRoom(gameId)).emit('server:game:start', { startedAt: game.startedAt });
-        // Host goes first - only use timer for PvP games
-        if (game.type === 'pvp') {
-          startTurnTimer(io, gameId, 'host');
-        } else {
-          io.to(gameRoom(gameId)).emit('server:game:turn', { turn: 'host', deadline: null });
-        }
+        // Host goes first
+        startTurnTimer(io, gameId, 'host');
       }
     } catch (err) {
       socket.emit('server:error', { code: 'SET_SECRET_FAILED', message: 'Failed to set secret' });
@@ -222,7 +221,9 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
 
       // For AI games: AI guesses immediately after host
       if (game.type === 'ai') {
-        const aiGuess = await getAIGuess(gameId);
+        // Show "AI thinking" state, then guess after delay
+        io.to(gameRoom(gameId)).emit('server:game:turn', { turn: 'challenger', deadline: null });
+        const aiGuess = await getAIGuess(gameId, game.currentRound);
         if (aiGuess) {
           const aiResult = evaluate(aiGuess, me.secret);
           opponent.guesses.push({ guess: aiGuess, bulls: aiResult.bulls, cows: aiResult.cows, timestamp: new Date() });
@@ -240,10 +241,10 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
           }
         }
 
-        // Next round, host's turn again
+        // Next round, host's turn again with timer
         game.currentRound++;
         await game.save();
-        io.to(gameRoom(gameId)).emit('server:game:turn', { turn: 'host', deadline: null });
+        startTurnTimer(io, gameId, 'host');
         return;
       }
 

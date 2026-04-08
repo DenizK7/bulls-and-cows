@@ -36,13 +36,14 @@ export function getAISecret(gameId: string): string | null {
   return activeGames.get(gameId)?.secret ?? null;
 }
 
-export async function getAIGuess(gameId: string): Promise<string | null> {
+export async function getAIGuess(gameId: string, round: number): Promise<string | null> {
   const state = activeGames.get(gameId);
   if (!state) return null;
 
-  // Artificial thinking delay
-  const delay =
-    AI_THINK_MIN_MS + Math.random() * (AI_THINK_MAX_MS - AI_THINK_MIN_MS);
+  // Fake thinking delay - longer in later rounds to feel realistic
+  const minMs = round > 5 ? 10_000 : 5_000;
+  const maxMs = round > 5 ? 15_000 : 10_000;
+  const delay = minMs + Math.random() * (maxMs - minMs);
   await new Promise((r) => setTimeout(r, delay));
 
   return state.solver.nextGuess();
