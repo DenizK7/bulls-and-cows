@@ -176,27 +176,46 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
         if (u) { opponentName = u.displayName; opponentAvatar = u.avatarUrl; }
       }
       socket.emit('server:game:state', buildGameState(game, socket.userId, socket.displayName, socket.avatarUrl, opponentName, opponentAvatar));
+
+      // If game is already in progress, send current turn info so player can resume
+      if (game.status === 'in_progress') {
+        const turn = gameCurrentTurns.get(gameId);
+        if (turn) {
+          socket.emit('server:game:start', { startedAt: game.startedAt, turnTimeMs: game.turnTimeMs });
+        }
+      }
     } catch (err) {
       socket.emit('server:error', { code: 'GAME_JOIN_FAILED', message: 'Failed to join game' });
     }
   });
 
-  // Set secret
+  // Set secret (atomic to prevent race condition when both players submit simultaneously)
   socket.on('client:game:set-secret', async ({ gameId, secret }: { gameId: string; secret: string }) => {
     try {
       if (!isValidSecret(secret)) { socket.emit('server:error', { code: 'INVALID_SECRET', message: 'Must be 4 unique digits' }); return; }
-      const game = await Game.findById(gameId);
-      if (!game || game.status !== 'waiting_secrets') return;
 
-      const isHost = game.players.host.userId.toString() === socket.userId;
-      const player = isHost ? game.players.host : game.players.challenger;
-      if (player.secretSet) return;
+      // Determine role first with a quick read
+      const check = await Game.findById(gameId).lean();
+      if (!check || check.status !== 'waiting_secrets') return;
+      const isHost = check.players.host.userId.toString() === socket.userId;
+      const alreadySet = isHost ? check.players.host.secretSet : check.players.challenger.secretSet;
+      if (alreadySet) return;
 
-      player.secret = secret;
-      player.secretSet = true;
+      // Atomic update: set only this player's secret, don't overwrite opponent's data
+      const updatePath = isHost ? 'players.host' : 'players.challenger';
+      const game = await Game.findOneAndUpdate(
+        { _id: gameId, status: 'waiting_secrets', [`${updatePath}.secretSet`]: false },
+        { $set: { [`${updatePath}.secret`]: secret, [`${updatePath}.secretSet`]: true } },
+        { new: true },
+      );
+      if (!game) return; // already set or game state changed
+
       const bothSet = game.players.host.secretSet && game.players.challenger.secretSet;
-      if (bothSet) { game.status = 'in_progress'; game.startedAt = new Date(); }
-      await game.save();
+      if (bothSet) {
+        game.status = 'in_progress';
+        game.startedAt = new Date();
+        await game.save();
+      }
 
       io.to(gameRoom(gameId)).emit('server:game:secret-set', { role: isHost ? 'host' : 'challenger' });
 
