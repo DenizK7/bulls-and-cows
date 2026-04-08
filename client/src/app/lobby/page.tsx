@@ -254,11 +254,14 @@ export default function LobbyPage() {
                         </div>
                       </div>
 
-                      {/* Sound toggle placeholder */}
+                      {/* Language */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-text-muted">Sound Effects</span>
-                        <div className="w-8 h-4 bg-bg-elevated border border-border rounded-full relative cursor-not-allowed opacity-50">
-                          <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-text-dim rounded-full" />
+                        <span className="text-xs text-text-muted">Language</span>
+                        <div className="flex bg-bg-elevated rounded-md border border-border overflow-hidden">
+                          <button onClick={() => { localStorage.setItem("lang", "en"); window.location.reload(); }}
+                            className={`px-2 py-1 text-[10px] font-medium cursor-pointer ${localStorage.getItem("lang") !== "tr" ? "bg-accent/20 text-accent" : "text-text-dim"}`}>EN</button>
+                          <button onClick={() => { localStorage.setItem("lang", "tr"); window.location.reload(); }}
+                            className={`px-2 py-1 text-[10px] font-medium cursor-pointer ${localStorage.getItem("lang") === "tr" ? "bg-accent/20 text-accent" : "text-text-dim"}`}>TR</button>
                         </div>
                       </div>
 
@@ -535,6 +538,15 @@ export default function LobbyPage() {
                       className="px-3 py-3 bg-bg-elevated border border-border rounded-xl text-text-dim hover:text-text-muted cursor-pointer text-xs">
                       Random
                     </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-text-dim mb-1 block">Language</label>
+                  <div className="flex bg-bg-elevated rounded-xl border border-border overflow-hidden">
+                    <button onClick={() => localStorage.setItem("lang", "en")} type="button"
+                      className={`flex-1 py-2 text-xs font-medium cursor-pointer ${localStorage.getItem("lang") !== "tr" ? "bg-accent/15 text-accent" : "text-text-dim"}`}>English</button>
+                    <button onClick={() => localStorage.setItem("lang", "tr")} type="button"
+                      className={`flex-1 py-2 text-xs font-medium cursor-pointer ${localStorage.getItem("lang") === "tr" ? "bg-accent/15 text-accent" : "text-text-dim"}`}>Türkçe</button>
                   </div>
                 </div>
                 <div className="bg-bg-elevated rounded-xl p-3 text-center">

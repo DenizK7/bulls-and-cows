@@ -31,15 +31,43 @@ function startTurnTimer(io: Server, gameId: string, currentTurn: 'host' | 'chall
       const game = await Game.findById(gameId);
       if (!game || game.status !== 'in_progress') return;
 
-      // AI never loses by timeout - only real players do
-      if (game.type === 'ai') return;
+      // Skip turn - add "----" as missed guess
+      const timedOutPlayer = currentTurn === 'host' ? game.players.host : game.players.challenger;
+      const opponent = currentTurn === 'host' ? game.players.challenger : game.players.host;
+      timedOutPlayer.guesses.push({ guess: '----', bulls: 0, cows: 0, timestamp: new Date() });
 
-      // PvP: skip the timed-out player's turn instead of ending the game
-      const nextTurn = currentTurn === 'host' ? 'challenger' : 'host';
-      if (nextTurn === 'host') game.currentRound++;
-      await game.save();
-      startTurnTimer(io, gameId, nextTurn);
+      // Broadcast the skip
+      io.to(gameRoom(gameId)).emit('server:game:guess-result', {
+        role: currentTurn, guess: '----', bulls: 0, cows: 0,
+      });
       io.to(gameRoom(gameId)).emit('server:game:turn-skipped', { skippedPlayer: currentTurn });
+
+      if (game.type === 'ai') {
+        // AI also guesses after host timeout
+        const aiGuess = await getAIGuess(gameId, game.currentRound);
+        if (aiGuess) {
+          const aiResult = evaluate(aiGuess, timedOutPlayer.secret);
+          opponent.guesses.push({ guess: aiGuess, bulls: aiResult.bulls, cows: aiResult.cows, timestamp: new Date() });
+          processAIResult(gameId, aiGuess, aiResult.bulls, aiResult.cows);
+          io.to(gameRoom(gameId)).emit('server:game:guess-result', {
+            role: 'challenger', guess: aiGuess, bulls: aiResult.bulls, cows: aiResult.cows,
+          });
+          if (aiResult.bulls === 4) {
+            await game.save();
+            await endGame(io, game, 'AI', 'guessed');
+            return;
+          }
+        }
+        game.currentRound++;
+        await game.save();
+        startTurnTimer(io, gameId, 'host');
+      } else {
+        // PvP: switch turn
+        const nextTurn = currentTurn === 'host' ? 'challenger' : 'host';
+        if (nextTurn === 'host') game.currentRound++;
+        await game.save();
+        startTurnTimer(io, gameId, nextTurn);
+      }
     } catch (err) {
       console.error('Turn timeout error:', err);
     }
