@@ -49,7 +49,7 @@ router.get('/me', async (req, res) => {
       return;
     }
 
-    res.json({ id: user._id, displayName: user.displayName, tag: user.tag, avatarUrl: user.avatarUrl, stats: user.stats, settings: user.settings });
+    res.json({ id: user._id, displayName: user.displayName, tag: user.tag, avatarUrl: user.avatarUrl, stats: user.stats, settings: user.settings, setupComplete: user.setupComplete });
   } catch (err) {
     console.error('Auth me error:', err);
     res.status(500).json({ error: 'Internal server error' });

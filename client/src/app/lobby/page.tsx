@@ -47,6 +47,7 @@ export default function LobbyPage() {
   const [savingName, setSavingName] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [setupTag, setSetupTag] = useState(() => String(Math.floor(1000 + Math.random() * 9000)));
+  const [profile, setProfile] = useState<{ displayName: string; tag: string } | null>(null);
 
   const token = (session as { backendToken?: string })?.backendToken;
 
@@ -68,12 +69,17 @@ export default function LobbyPage() {
 
   useEffect(() => { fetchFriends(); }, [fetchFriends]);
 
-  // Check if first-login setup is needed
+  // Load profile from backend + check setup
   useEffect(() => {
     if (!token) return;
     fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => { if (!data.setupComplete) setShowSetup(true); });
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        setProfile({ displayName: data.displayName, tag: data.tag });
+        setEditName(data.displayName);
+        if (!data.setupComplete) setShowSetup(true);
+      });
   }, [token]);
 
   // Socket events
@@ -183,9 +189,9 @@ export default function LobbyPage() {
           <div className="flex items-center gap-2">
             <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-online" : "bg-danger"}`} />
             {user?.image && <Image src={user.image} alt="" width={24} height={24} className="rounded-full" />}
-            <span className="text-xs text-text-muted">{user?.name}<span className="text-text-dim font-mono ml-1">#{userTag}</span></span>
+            <span className="text-xs text-text-muted">{profile?.displayName || user?.name}<span className="text-text-dim font-mono ml-1">#{profile?.tag || userTag}</span></span>
             <div className="relative">
-              <button onClick={() => { setSettingsOpen(!settingsOpen); setEditName(user?.name || ""); setNameMsg(""); }}
+              <button onClick={() => { setSettingsOpen(!settingsOpen); setEditName(profile?.displayName || user?.name || ""); setNameMsg(""); }}
                 className="ml-1 p-1 rounded-md hover:bg-bg-elevated text-text-dim hover:text-text-muted cursor-pointer transition-colors"
                 aria-label="Settings">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -225,7 +231,7 @@ export default function LobbyPage() {
                                   body: JSON.stringify({ displayName: editName }),
                                 });
                                 const data = await res.json();
-                                if (res.ok) { setNameMsg("Saved!"); }
+                                if (res.ok) { setNameMsg("Saved!"); setProfile(prev => prev ? { ...prev, displayName: editName } : null); }
                                 else setNameMsg(data.error || "Failed");
                               } catch { setNameMsg("Error"); }
                               setSavingName(false);
@@ -241,7 +247,7 @@ export default function LobbyPage() {
                       <div>
                         <label className="text-[11px] text-text-dim mb-1 block">Your Tag</label>
                         <div className="bg-bg-elevated border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono text-text-muted">
-                          {user?.name}#{userTag}
+                          {profile?.displayName || user?.name}#{profile?.tag || userTag}
                         </div>
                       </div>
 
@@ -437,7 +443,7 @@ export default function LobbyPage() {
                   <div className="text-center py-8 text-text-dim">
                     <div className="text-3xl mb-2">👋</div>
                     <p className="text-sm">No friends yet</p>
-                    <p className="text-xs mt-1">Share your tag <span className="font-mono text-accent">{user?.name}#{userTag}</span> with friends</p>
+                    <p className="text-xs mt-1">Share your tag <span className="font-mono text-accent">{profile?.displayName || user?.name}#{profile?.tag || userTag}</span> with friends</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -472,7 +478,7 @@ export default function LobbyPage() {
               {/* Your Tag */}
               <div className="bg-bg-elevated/50 rounded-xl p-4 text-center">
                 <p className="text-text-dim text-xs mb-1">Your tag — share it with friends</p>
-                <p className="font-mono text-lg font-bold text-accent">{user?.name}#{userTag}</p>
+                <p className="font-mono text-lg font-bold text-accent">{profile?.displayName || user?.name}#{profile?.tag || userTag}</p>
               </div>
             </motion.div>
           )}
@@ -529,7 +535,7 @@ export default function LobbyPage() {
                         body: JSON.stringify({ displayName: editName, tag: setupTag }),
                       });
                       const data = await res.json();
-                      if (res.ok) { setShowSetup(false); /* TODO: open tutorial */ }
+                      if (res.ok) { setProfile({ displayName: editName, tag: setupTag }); setShowSetup(false); }
                       else setNameMsg(data.error || "Failed");
                     } catch { setNameMsg("Network error"); }
                     setSavingName(false);
