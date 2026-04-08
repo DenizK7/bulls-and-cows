@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useSocket } from "@/hooks/useSocket";
 import { useMusicPlayer } from "@/components/MusicPlayer";
+import { useT } from "@/lib/i18n";
 import Image from "next/image";
 
 interface Friend {
@@ -46,6 +47,7 @@ export default function LobbyPage() {
   const [readyState, setReadyState] = useState<{ inviteId: string; readyCount: number; amReady: boolean; countdown: number | null } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const music = useMusicPlayer();
+  const { t, lang, setLang: changeLang } = useT();
   const [editName, setEditName] = useState("");
   const [nameMsg, setNameMsg] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -229,11 +231,11 @@ export default function LobbyPage() {
                     <motion.div initial={{ opacity: 0, y: -4, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.95 }}
                       transition={{ duration: 0.15 }}
                       className="absolute right-0 top-full mt-2 z-50 w-64 bg-bg-card border border-border rounded-xl shadow-xl p-4 flex flex-col gap-3">
-                      <div className="text-xs font-semibold text-text-muted uppercase tracking-wider">Settings</div>
+                      <div className="text-xs font-semibold text-text-muted uppercase tracking-wider">{t("lobby.settings")}</div>
 
                       {/* Display Name */}
                       <div>
-                        <label className="text-[11px] text-text-dim mb-1 block">Display Name</label>
+                        <label className="text-[11px] text-text-dim mb-1 block">{t("lobby.displayName")}</label>
                         <div className="flex gap-1.5">
                           <input
                             value={editName}
@@ -259,7 +261,7 @@ export default function LobbyPage() {
                               setSavingName(false);
                             }}
                             className="px-2.5 py-1.5 bg-accent text-bg text-xs font-medium rounded-lg hover:brightness-110 disabled:opacity-30 cursor-pointer">
-                            Save
+                            {t("lobby.save")}
                           </button>
                         </div>
                         {nameMsg && <p className={`text-[10px] mt-1 ${nameMsg === "Saved!" ? "text-success" : "text-danger"}`}>{nameMsg}</p>}
@@ -267,7 +269,7 @@ export default function LobbyPage() {
 
                       {/* Tag (read-only) */}
                       <div>
-                        <label className="text-[11px] text-text-dim mb-1 block">Your Tag</label>
+                        <label className="text-[11px] text-text-dim mb-1 block">{t("lobby.yourTag")}</label>
                         <div className="bg-bg-elevated border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono text-text-muted">
                           {profile?.displayName || user?.name}#{profile?.tag || userTag}
                         </div>
@@ -275,18 +277,18 @@ export default function LobbyPage() {
 
                       {/* Language */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-text-muted">Language</span>
+                        <span className="text-xs text-text-muted">{t("lobby.language")}</span>
                         <div className="flex bg-bg-elevated rounded-md border border-border overflow-hidden">
-                          <button onClick={() => { localStorage.setItem("lang", "en"); window.location.reload(); }}
-                            className={`px-2 py-1 text-[10px] font-medium cursor-pointer ${localStorage.getItem("lang") !== "tr" ? "bg-accent/20 text-accent" : "text-text-dim"}`}>EN</button>
-                          <button onClick={() => { localStorage.setItem("lang", "tr"); window.location.reload(); }}
-                            className={`px-2 py-1 text-[10px] font-medium cursor-pointer ${localStorage.getItem("lang") === "tr" ? "bg-accent/20 text-accent" : "text-text-dim"}`}>TR</button>
+                          <button onClick={() => changeLang("en")}
+                            className={`px-2 py-1 text-[10px] font-medium cursor-pointer ${lang === "en" ? "bg-accent/20 text-accent" : "text-text-dim"}`}>EN</button>
+                          <button onClick={() => changeLang("tr")}
+                            className={`px-2 py-1 text-[10px] font-medium cursor-pointer ${lang === "tr" ? "bg-accent/20 text-accent" : "text-text-dim"}`}>TR</button>
                         </div>
                       </div>
 
                       {/* Music */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-text-muted">Music</span>
+                        <span className="text-xs text-text-muted">{t("lobby.music")}</span>
                         <div className="flex items-center gap-2">
                           <input type="range" min="0" max="1" step="0.05" value={music.volume}
                             onChange={(e) => music.setVolume(parseFloat(e.target.value))}
@@ -301,7 +303,7 @@ export default function LobbyPage() {
                       <div className="border-t border-border pt-2">
                         <button onClick={() => signOut({ callbackUrl: "/" })}
                           className="w-full py-2 text-xs text-danger hover:bg-danger/10 rounded-lg cursor-pointer transition-colors font-medium">
-                          Sign Out
+                          {t("lobby.signOut")}
                         </button>
                       </div>
                     </motion.div>
@@ -315,13 +317,13 @@ export default function LobbyPage() {
         {/* Tabs */}
         <div className="flex bg-bg-card rounded-lg p-0.5 border border-border text-sm">
           {[
-            { key: "play" as const, label: "Play" },
-            { key: "friends" as const, label: `Friends${friends.length ? ` (${friends.length})` : ""}` },
-          ].map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            { key: "play" as const, label: t("lobby.play") },
+            { key: "friends" as const, label: `${t("lobby.friends")}${friends.length ? ` (${friends.length})` : ""}` },
+          ].map((tb) => (
+            <button key={tb.key} onClick={() => setTab(tb.key)}
               className={`flex-1 py-2 rounded-md font-medium transition-all cursor-pointer ${
-                tab === t.key ? "bg-bg-elevated text-text shadow-sm" : "text-text-muted"
-              }`}>{t.label}</button>
+                tab === tb.key ? "bg-bg-elevated text-text shadow-sm" : "text-text-muted"
+              }`}>{tb.label}</button>
           ))}
         </div>
 
@@ -330,12 +332,12 @@ export default function LobbyPage() {
             <motion.div key="play" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex flex-col gap-3">
               {/* AI */}
               <div className="bg-bg-card border border-border rounded-xl p-4">
-                <h2 className="text-sm font-semibold mb-2">Play vs AI</h2>
+                <h2 className="text-sm font-semibold mb-2">{t("lobby.playAI")}</h2>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: "Easy", difficulty: "easy", color: "text-success border-success/20 bg-success/5" },
-                    { label: "Medium", difficulty: "medium", color: "text-warning border-warning/20 bg-warning/5" },
-                    { label: "Hard", difficulty: "hard", color: "text-danger border-danger/20 bg-danger/5" },
+                    { label: t("difficulty.easy"), difficulty: "easy", color: "text-success border-success/20 bg-success/5" },
+                    { label: t("difficulty.medium"), difficulty: "medium", color: "text-warning border-warning/20 bg-warning/5" },
+                    { label: t("difficulty.hard"), difficulty: "hard", color: "text-danger border-danger/20 bg-danger/5" },
                   ].map((m) => (
                     <button key={m.difficulty} onClick={() => handlePlayAI(m.difficulty)} disabled={!connected}
                       className={`border rounded-lg py-2.5 text-center font-bold text-sm hover:brightness-125 transition-all cursor-pointer active:scale-[0.97] disabled:opacity-40 ${m.color}`}>
@@ -347,7 +349,7 @@ export default function LobbyPage() {
 
               {/* PvP */}
               <div className="bg-bg-card border border-border rounded-xl p-4">
-                <h2 className="text-sm font-semibold mb-2">Play Online</h2>
+                <h2 className="text-sm font-semibold mb-2">{t("lobby.playOnline")}</h2>
                 <button onClick={handleFindMatch} disabled={!connected}
                   className={`w-full py-3 rounded-lg font-semibold text-sm transition-all cursor-pointer active:scale-[0.98] disabled:opacity-40 ${
                     matchmaking ? "bg-danger/15 border border-danger text-danger" : "bg-accent text-bg hover:brightness-110"
@@ -355,17 +357,17 @@ export default function LobbyPage() {
                   {matchmaking ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="w-3.5 h-3.5 border-2 border-danger border-t-transparent rounded-full animate-spin" />
-                      Cancel
+                      {t("lobby.searching")}
                     </span>
-                  ) : "Find Match"}
+                  ) : t("lobby.findMatch")}
                 </button>
               </div>
 
               {/* Play with Friends */}
               <div className="bg-bg-card border border-border rounded-xl p-4">
-                <h2 className="text-sm font-semibold mb-2">Play with Friends</h2>
+                <h2 className="text-sm font-semibold mb-2">{t("lobby.playFriends")}</h2>
                 {friends.length === 0 ? (
-                  <p className="text-text-dim text-xs">Add friends in the Friends tab to invite them!</p>
+                  <p className="text-text-dim text-xs">{t("lobby.noFriends")}</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {friends.map((f) => {
@@ -384,8 +386,8 @@ export default function LobbyPage() {
                             <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-bg-elevated ${isOnline ? (isInGame ? "bg-warning" : "bg-online") : "bg-text-dim"}`} />
                           </div>
                           <span className="font-medium">{f.displayName}</span>
-                          {!isOnline && <span className="text-[9px] text-text-dim">offline</span>}
-                          {isOnline && isInGame && <span className="text-[9px] text-warning">in game</span>}
+                          {!isOnline && <span className="text-[9px] text-text-dim">{t("lobby.offline")}</span>}
+                          {isOnline && isInGame && <span className="text-[9px] text-warning">{t("lobby.inGame")}</span>}
                         </button>
                       );
                     })}
@@ -397,8 +399,8 @@ export default function LobbyPage() {
               <Link href="/how-to-play">
                 <div className="bg-bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:border-border-light cursor-pointer transition-all">
                   <div>
-                    <h2 className="text-sm font-semibold">How to Play</h2>
-                    <p className="text-text-dim text-xs">Learn the rules with a practice game</p>
+                    <h2 className="text-sm font-semibold">{t("lobby.howToPlay")}</h2>
+                    <p className="text-text-dim text-xs">{t("lobby.howToPlayDesc")}</p>
                   </div>
                   <span className="text-text-dim text-lg">&rarr;</span>
                 </div>
@@ -409,7 +411,7 @@ export default function LobbyPage() {
               {/* Add Friend */}
               <div className="bg-bg-card border border-border rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-base font-semibold">Add Friend</h2>
+                  <h2 className="text-base font-semibold">{t("lobby.addFriend")}</h2>
                   <button
                     onClick={() => setAddFriendOpen(!addFriendOpen)}
                     className="text-xs text-accent hover:underline cursor-pointer"
@@ -421,7 +423,7 @@ export default function LobbyPage() {
                 <AnimatePresence>
                   {addFriendOpen && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                      <p className="text-text-dim text-xs mb-3">Enter your friend&apos;s name and #tag</p>
+                      <p className="text-text-dim text-xs mb-3">{t("lobby.addFriendDesc")}</p>
                       <div className="flex gap-2 mb-2">
                         <input
                           value={friendSearch}
@@ -458,7 +460,7 @@ export default function LobbyPage() {
               {/* Pending Requests */}
               {requests.length > 0 && (
                 <div className="bg-bg-card border border-warning/20 rounded-2xl p-5">
-                  <h3 className="text-sm font-semibold text-warning mb-3">Pending Requests ({requests.length})</h3>
+                  <h3 className="text-sm font-semibold text-warning mb-3">{t("lobby.pendingRequests")} ({requests.length})</h3>
                   <div className="flex flex-col gap-2">
                     {requests.map((r) => (
                       <div key={r._id} className="flex items-center justify-between bg-bg-elevated rounded-xl px-3 py-2">
@@ -476,8 +478,8 @@ export default function LobbyPage() {
                           </div>
                         </div>
                         <div className="flex gap-1.5">
-                          <button onClick={() => handleAccept(r._id)} className="px-3 py-1 bg-success/20 text-success text-xs font-medium rounded-lg cursor-pointer hover:bg-success/30">Accept</button>
-                          <button onClick={() => handleDecline(r._id)} className="px-3 py-1 bg-danger/20 text-danger text-xs font-medium rounded-lg cursor-pointer hover:bg-danger/30">Decline</button>
+                          <button onClick={() => handleAccept(r._id)} className="px-3 py-1 bg-success/20 text-success text-xs font-medium rounded-lg cursor-pointer hover:bg-success/30">{t("lobby.accept")}</button>
+                          <button onClick={() => handleDecline(r._id)} className="px-3 py-1 bg-danger/20 text-danger text-xs font-medium rounded-lg cursor-pointer hover:bg-danger/30">{t("lobby.decline")}</button>
                         </div>
                       </div>
                     ))}
@@ -488,12 +490,12 @@ export default function LobbyPage() {
               {/* Sent Requests */}
               {sentRequests.length > 0 && (
                 <div className="bg-bg-card border border-border rounded-xl p-4">
-                  <h3 className="text-xs font-semibold text-text-dim mb-2">Sent ({sentRequests.length})</h3>
+                  <h3 className="text-xs font-semibold text-text-dim mb-2">{t("lobby.sent")} ({sentRequests.length})</h3>
                   <div className="flex flex-col gap-1.5">
                     {sentRequests.map((r) => (
                       <div key={r._id} className="flex items-center justify-between bg-bg-elevated rounded-lg px-3 py-1.5">
                         <span className="text-xs text-text-muted">{r.recipientId.displayName}<span className="text-text-dim font-mono ml-0.5">#{r.recipientId.tag}</span></span>
-                        <span className="text-[10px] text-text-dim">pending</span>
+                        <span className="text-[10px] text-text-dim">{t("lobby.pending")}</span>
                       </div>
                     ))}
                   </div>
@@ -502,12 +504,12 @@ export default function LobbyPage() {
 
               {/* Friends List */}
               <div className="bg-bg-card border border-border rounded-2xl p-5">
-                <h3 className="text-sm font-semibold mb-3">Friends</h3>
+                <h3 className="text-sm font-semibold mb-3">{t("lobby.friends")}</h3>
                 {friends.length === 0 ? (
                   <div className="text-center py-8 text-text-dim">
                     <div className="text-3xl mb-2">👋</div>
-                    <p className="text-sm">No friends yet</p>
-                    <p className="text-xs mt-1">Share your tag <span className="font-mono text-accent">{profile?.displayName || user?.name}#{profile?.tag || userTag}</span> with friends</p>
+                    <p className="text-sm">{t("lobby.noFriends")}</p>
+                    <p className="text-xs mt-1">{t("lobby.shareFriends")} <span className="font-mono text-accent">{profile?.displayName || user?.name}#{profile?.tag || userTag}</span></p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -531,7 +533,7 @@ export default function LobbyPage() {
                         </div>
                         <button onClick={() => setInviteModal({ friendId: f._id, friendName: f.displayName })}
                           className="px-3 py-1.5 bg-accent/15 text-accent text-xs font-medium rounded-lg cursor-pointer hover:bg-accent/25">
-                          Invite
+                          {t("lobby.invite")}
                         </button>
                       </div>
                     ))}
@@ -541,7 +543,7 @@ export default function LobbyPage() {
 
               {/* Your Tag */}
               <div className="bg-bg-elevated/50 rounded-xl p-4 text-center">
-                <p className="text-text-dim text-xs mb-1">Your tag — share it with friends</p>
+                <p className="text-text-dim text-xs mb-1">{t("lobby.yourTagShare")}</p>
                 <p className="font-mono text-lg font-bold text-accent">{profile?.displayName || user?.name}#{profile?.tag || userTag}</p>
               </div>
             </motion.div>
@@ -557,19 +559,19 @@ export default function LobbyPage() {
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
               className="bg-bg-card border border-border rounded-2xl p-6 max-w-sm w-full">
               <div className="text-center mb-5">
-                <h2 className="text-xl font-bold">Welcome!</h2>
-                <p className="text-text-muted text-sm mt-1">Choose your username and tag</p>
+                <h2 className="text-xl font-bold">{t("lobby.welcome")}</h2>
+                <p className="text-text-muted text-sm mt-1">{t("setup.title")}</p>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-text-dim mb-1 block">Username</label>
+                  <label className="text-xs text-text-dim mb-1 block">{t("setup.username")}</label>
                   <input value={editName} onChange={(e) => setEditName(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20))}
                     maxLength={20} placeholder="CoolPlayer"
                     className="w-full bg-bg-elevated border-2 border-border rounded-xl px-4 py-3 text-sm font-medium focus:border-accent focus:outline-none" />
-                  <p className="text-[10px] text-text-dim mt-1">2-20 characters, letters/numbers/underscore only</p>
+                  <p className="text-[10px] text-text-dim mt-1">{t("setup.usernameHint")}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-text-dim mb-1 block">Tag #</label>
+                  <label className="text-xs text-text-dim mb-1 block">{t("setup.tag")}</label>
                   <div className="flex gap-2">
                     <div className="flex items-center bg-bg-elevated border-2 border-border rounded-xl px-4 py-3 flex-1">
                       <span className="text-text-dim text-sm mr-1">#</span>
@@ -579,21 +581,21 @@ export default function LobbyPage() {
                     </div>
                     <button onClick={() => setSetupTag(String(Math.floor(1000 + Math.random() * 9000)))}
                       className="px-3 py-3 bg-bg-elevated border border-border rounded-xl text-text-dim hover:text-text-muted cursor-pointer text-xs">
-                      Random
+                      {t("lobby.random")}
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-text-dim mb-1 block">Language</label>
+                  <label className="text-xs text-text-dim mb-1 block">{t("lobby.language")}</label>
                   <div className="flex bg-bg-elevated rounded-xl border border-border overflow-hidden">
-                    <button onClick={() => localStorage.setItem("lang", "en")} type="button"
-                      className={`flex-1 py-2 text-xs font-medium cursor-pointer ${localStorage.getItem("lang") !== "tr" ? "bg-accent/15 text-accent" : "text-text-dim"}`}>English</button>
-                    <button onClick={() => localStorage.setItem("lang", "tr")} type="button"
-                      className={`flex-1 py-2 text-xs font-medium cursor-pointer ${localStorage.getItem("lang") === "tr" ? "bg-accent/15 text-accent" : "text-text-dim"}`}>Türkçe</button>
+                    <button onClick={() => changeLang("en")} type="button"
+                      className={`flex-1 py-2 text-xs font-medium cursor-pointer ${lang === "en" ? "bg-accent/15 text-accent" : "text-text-dim"}`}>English</button>
+                    <button onClick={() => changeLang("tr")} type="button"
+                      className={`flex-1 py-2 text-xs font-medium cursor-pointer ${lang === "tr" ? "bg-accent/15 text-accent" : "text-text-dim"}`}>Türkçe</button>
                   </div>
                 </div>
                 <div className="bg-bg-elevated rounded-xl p-3 text-center">
-                  <p className="text-[10px] text-text-dim mb-0.5">Your profile</p>
+                  <p className="text-[10px] text-text-dim mb-0.5">{t("setup.yourProfile")}</p>
                   <p className="font-bold">{editName || "..."}<span className="text-accent font-mono">#{setupTag || "0000"}</span></p>
                 </div>
                 {nameMsg && <p className={`text-xs text-center ${nameMsg.includes("!") ? "text-success" : "text-danger"}`}>{nameMsg}</p>}
@@ -608,13 +610,13 @@ export default function LobbyPage() {
                         body: JSON.stringify({ displayName: editName, tag: setupTag }),
                       });
                       const data = await res.json();
-                      if (res.ok) { setProfile({ displayName: editName, tag: setupTag }); setShowSetup(false); }
+                      if (res.ok) { setProfile({ displayName: editName, tag: setupTag }); setShowSetup(false); router.push("/how-to-play"); }
                       else setNameMsg(data.error || "Failed");
                     } catch { setNameMsg("Network error"); }
                     setSavingName(false);
                   }}
                   className="w-full py-3 bg-accent text-bg font-semibold rounded-xl hover:brightness-110 cursor-pointer active:scale-[0.98] disabled:opacity-40">
-                  {savingName ? "Saving..." : "Let's Go!"}
+                  {savingName ? t("setup.saving") : t("setup.letsGo")}
                 </button>
               </div>
             </motion.div>
@@ -629,37 +631,37 @@ export default function LobbyPage() {
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
               className="bg-bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center">
-              <h3 className="text-lg font-bold mb-1">Invite {inviteModal.friendName}</h3>
-              <p className="text-text-muted text-xs mb-4">Choose turn time limit</p>
+              <h3 className="text-lg font-bold mb-1">{t("lobby.invite")} {inviteModal.friendName}</h3>
+              <p className="text-text-muted text-xs mb-4">{t("invite.selectTime")}</p>
               <div className="flex gap-2 mb-5">
                 {[
-                  { ms: 30000, label: "30s", desc: "Fast" },
-                  { ms: 60000, label: "60s", desc: "Normal" },
-                  { ms: 120000, label: "2min", desc: "Chill" },
-                ].map((t) => (
-                  <button key={t.ms} onClick={() => setInviteTurnTime(t.ms)}
+                  { ms: 30000, label: "30s", desc: t("invite.fast") },
+                  { ms: 60000, label: "60s", desc: t("invite.normal") },
+                  { ms: 120000, label: "2min", desc: t("invite.chill") },
+                ].map((opt) => (
+                  <button key={opt.ms} onClick={() => setInviteTurnTime(opt.ms)}
                     className={`flex-1 py-3 rounded-xl border-2 cursor-pointer transition-all ${
-                      inviteTurnTime === t.ms ? "border-accent bg-accent/10 text-accent" : "border-border text-text-muted hover:border-border-light"
+                      inviteTurnTime === opt.ms ? "border-accent bg-accent/10 text-accent" : "border-border text-text-muted hover:border-border-light"
                     }`}>
-                    <div className="font-bold">{t.label}</div>
-                    <div className="text-[10px] opacity-70">{t.desc}</div>
+                    <div className="font-bold">{opt.label}</div>
+                    <div className="text-[10px] opacity-70">{opt.desc}</div>
                   </button>
                 ))}
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setInviteModal(null)}
                   className="flex-1 py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl cursor-pointer hover:bg-bg-hover">
-                  Cancel
+                  {t("invite.cancel")}
                 </button>
                 <button onClick={() => {
                   socket?.emit("client:invite:send", { toUserId: inviteModal.friendId, turnTime: inviteTurnTime });
                   const friendName = inviteModal.friendName;
                   setInviteModal(null);
-                  const t = setTimeout(() => setWaitingInvite(null), 15000);
-                  setWaitingInvite({ friendName, timeout: t });
+                  const tm = setTimeout(() => setWaitingInvite(null), 15000);
+                  setWaitingInvite({ friendName, timeout: tm });
                 }}
                   className="flex-1 py-2.5 bg-accent text-bg font-semibold rounded-xl cursor-pointer hover:brightness-110">
-                  Send Invite
+                  {t("invite.sendInvite")}
                 </button>
               </div>
             </motion.div>
@@ -675,12 +677,12 @@ export default function LobbyPage() {
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
               className="bg-bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center">
               <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <h3 className="text-base font-bold mb-1">Invite Sent</h3>
-              <p className="text-text-muted text-sm mb-4">Waiting for <strong className="text-text">{waitingInvite.friendName}</strong> to respond...</p>
-              <p className="text-text-dim text-xs mb-4">Expires in 15 seconds</p>
+              <h3 className="text-base font-bold mb-1">{t("lobby.inviteSent")}</h3>
+              <p className="text-text-muted text-sm mb-4">{t("invite.waitingOpponent")}</p>
+              <p className="text-text-dim text-xs mb-4">{t("lobby.expiresIn")}</p>
               <button onClick={() => { if (waitingInvite) clearTimeout(waitingInvite.timeout); setWaitingInvite(null); }}
                 className="w-full py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl cursor-pointer hover:bg-bg-hover">
-                Cancel
+                {t("invite.cancel")}
               </button>
             </motion.div>
           </motion.div>
@@ -695,17 +697,17 @@ export default function LobbyPage() {
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
               className="bg-bg-card border border-accent/20 rounded-2xl p-6 max-w-xs w-full text-center">
               <div className="text-3xl mb-2">⚔️</div>
-              <h3 className="text-lg font-bold mb-1">Game Invite!</h3>
-              <p className="text-text-muted text-sm mb-1"><strong className="text-text">{pendingInvite.from.displayName}</strong> wants to play</p>
-              <p className="text-text-dim text-xs mb-5">Turn time: {pendingInvite.turnTimeMs / 1000}s</p>
+              <h3 className="text-lg font-bold mb-1">{t("invite.title")}</h3>
+              <p className="text-text-muted text-sm mb-1"><strong className="text-text">{pendingInvite.from.displayName}</strong> {t("invite.wantsToPlay")}</p>
+              <p className="text-text-dim text-xs mb-5">{t("invite.turnTime")}: {pendingInvite.turnTimeMs / 1000}s</p>
               <div className="flex gap-2">
                 <button onClick={() => { socket?.emit("client:invite:decline", { inviteId: pendingInvite.inviteId }); setPendingInvite(null); }}
                   className="flex-1 py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl cursor-pointer hover:bg-bg-hover">
-                  Decline
+                  {t("invite.decline")}
                 </button>
                 <button onClick={() => { socket?.emit("client:invite:accept", { inviteId: pendingInvite.inviteId }); }}
                   className="flex-1 py-2.5 bg-accent text-bg font-semibold rounded-xl cursor-pointer hover:brightness-110">
-                  Accept
+                  {t("invite.accept")}
                 </button>
               </div>
             </motion.div>
@@ -723,7 +725,7 @@ export default function LobbyPage() {
               {readyState.countdown !== null ? (
                 <>
                   <div className="text-4xl font-bold text-accent mb-2">{readyState.countdown}</div>
-                  <p className="text-text-muted text-sm">Game starting...</p>
+                  <p className="text-text-muted text-sm">{t("invite.gameStarting")}</p>
                 </>
               ) : (
                 <>
@@ -743,7 +745,7 @@ export default function LobbyPage() {
                     className={`w-full py-3 font-semibold rounded-xl cursor-pointer transition-all ${
                       readyState.amReady ? "bg-success/20 text-success" : "bg-accent text-bg hover:brightness-110"
                     }`}>
-                    {readyState.amReady ? "Waiting for opponent..." : "Ready!"}
+                    {readyState.amReady ? t("invite.waitingOpponent") : t("invite.ready")}
                   </button>
                 </>
               )}

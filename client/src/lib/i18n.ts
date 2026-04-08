@@ -107,6 +107,35 @@ const translations = {
     "difficulty.easy": "Easy",
     "difficulty.medium": "Medium",
     "difficulty.hard": "Hard",
+    // Settings extras
+    "lobby.language": "Language",
+    "lobby.music": "Music",
+    "lobby.save": "Save",
+    "lobby.saved": "Saved!",
+    "lobby.welcome": "Welcome!",
+    "lobby.invite": "Invite",
+    "lobby.offline": "offline",
+    "lobby.inGame": "in game",
+    "lobby.pending": "pending",
+    "lobby.send": "Send",
+    "lobby.random": "Random",
+    "lobby.accept": "Accept",
+    "lobby.decline": "Decline",
+    "lobby.pendingRequests": "Pending Requests",
+    "lobby.sent": "Sent",
+    "lobby.addFriendDesc": "Enter your friend's name and #tag",
+    "lobby.yourTagShare": "Your tag — share it with friends",
+    "lobby.inviteSent": "Invite Sent",
+    "lobby.waitingResponse": "Waiting for {name} to respond...",
+    "lobby.expiresIn": "Expires in 15 seconds",
+    // Landing
+    "landing.demoRound": "Demo Round",
+    "landing.secret": "Secret",
+    "landing.crackedIn": "Cracked in 4 guesses!",
+    "landing.secretWas": "Secret was",
+    "landing.realTime": "Real-time",
+    "landing.difficulties": "3 Difficulties",
+    "landing.ranked": "Ranked",
   },
   tr: {
     // Landing
@@ -216,11 +245,40 @@ const translations = {
     "difficulty.easy": "Kolay",
     "difficulty.medium": "Orta",
     "difficulty.hard": "Zor",
+    // Settings extras
+    "lobby.language": "Dil",
+    "lobby.music": "Müzik",
+    "lobby.save": "Kaydet",
+    "lobby.saved": "Kaydedildi!",
+    "lobby.welcome": "Hoş geldin!",
+    "lobby.invite": "Davet Et",
+    "lobby.offline": "çevrimdışı",
+    "lobby.inGame": "oyunda",
+    "lobby.pending": "bekliyor",
+    "lobby.send": "Gönder",
+    "lobby.random": "Rastgele",
+    "lobby.accept": "Kabul Et",
+    "lobby.decline": "Reddet",
+    "lobby.pendingRequests": "Bekleyen İstekler",
+    "lobby.sent": "Gönderilen",
+    "lobby.addFriendDesc": "Arkadaşının adını ve #tag'ini gir",
+    "lobby.yourTagShare": "Tag'in — arkadaşlarınla paylaş",
+    "lobby.inviteSent": "Davet Gönderildi",
+    "lobby.waitingResponse": "{name} yanıt bekleniyor...",
+    "lobby.expiresIn": "15 saniyede sona erer",
+    // Landing
+    "landing.demoRound": "Demo Tur",
+    "landing.secret": "Gizli Sayı",
+    "landing.crackedIn": "4 tahminde çözüldü!",
+    "landing.secretWas": "Gizli sayı",
+    "landing.realTime": "Gerçek zamanlı",
+    "landing.difficulties": "3 Zorluk",
+    "landing.ranked": "Sıralama",
   },
 } as const;
 
 type Lang = "en" | "tr";
-type TranslationKey = keyof typeof translations.en;
+export type TranslationKey = keyof typeof translations.en;
 
 let currentLang: Lang = "en";
 

@@ -2,11 +2,12 @@
 
 import { useSession } from "next-auth/react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "@/hooks/useSocket";
 import { useMusicPlayer } from "@/components/MusicPlayer";
 import { useGame } from "@/hooks/useGame";
+import { useT, t } from "@/lib/i18n";
 
 function TurnTimer({ deadline, isMyTurn, frozen }: { deadline: number | null; isMyTurn: boolean; frozen?: boolean }) {
   const [remaining, setRemaining] = useState(60);
@@ -93,7 +94,7 @@ function Notepad({
   return (
     <div className="bg-bg-card border border-border rounded-xl p-3 w-full">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-text-dim uppercase tracking-wider font-medium">Notepad</span>
+        <span className="text-[10px] text-text-dim uppercase tracking-wider font-medium">{t("game.notepad")}</span>
       </div>
 
       {/* 4 note slots + clear button */}
@@ -117,7 +118,7 @@ function Notepad({
           onClick={() => { setSlots(["", "", "", ""]); setSelectedSlot(null); }}
           className="h-11 px-2 rounded-lg border border-border text-[10px] text-text-dim hover:text-danger hover:border-danger/30 transition-all cursor-pointer flex items-center justify-center"
         >
-          Clear
+          {t("game.clear")}
         </button>
       </div>
 
@@ -154,8 +155,8 @@ function Notepad({
       </div>
 
       <div className="flex justify-center gap-3 mt-2 text-[9px] text-text-dim">
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-bull inline-block" /> = right spot</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full border-2 border-cow inline-block" /> = wrong spot</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-bull inline-block" /> {t("game.rightSpot")}</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full border-2 border-cow inline-block" /> {t("game.wrongSpot")}</span>
       </div>
     </div>
   );
@@ -164,79 +165,101 @@ function Notepad({
 function DigitInput({
   onSubmit,
   disabled,
+  confirmLabel = "OK",
 }: {
   onSubmit: (value: string) => void;
   disabled: boolean;
+  confirmLabel?: string;
 }) {
   const [digits, setDigits] = useState(["", "", "", ""]);
-  const ref0 = useRef<HTMLInputElement>(null);
-  const ref1 = useRef<HTMLInputElement>(null);
-  const ref2 = useRef<HTMLInputElement>(null);
-  const ref3 = useRef<HTMLInputElement>(null);
-  const refs = [ref0, ref1, ref2, ref3];
+  const filledCount = digits.filter((d) => d !== "").length;
+  const isValid = filledCount === 4;
 
-  const filledDigits = digits.filter((d) => d !== "");
-  const isValid = filledDigits.length === 4;
-
-  // Auto-focus first input on mount
-  useEffect(() => {
-    ref0.current?.focus();
-  }, []);
-
-  const handleChange = (index: number, value: string) => {
-    if (!/^\d?$/.test(value)) return;
-    const newDigits = [...digits];
-    newDigits[index] = value;
-    setDigits(newDigits);
-    if (value && index < 3) refs[index + 1].current?.focus();
+  const addDigit = (d: string) => {
+    setDigits((prev) => {
+      const idx = prev.findIndex((x) => x === "");
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = d;
+      return next;
+    });
   };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !digits[index] && index > 0) {
-      refs[index - 1].current?.focus();
-    }
-    if (e.key === "Enter" && isValid) {
-      onSubmit(digits.join(""));
-      setDigits(["", "", "", ""]);
-      refs[0].current?.focus();
-    }
+  const removeDigit = () => {
+    setDigits((prev) => {
+      let lastIdx = -1;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i] !== "") { lastIdx = i; break; }
+      }
+      if (lastIdx === -1) return prev;
+      const next = [...prev];
+      next[lastIdx] = "";
+      return next;
+    });
   };
 
   const submit = () => {
     if (!isValid) return;
     onSubmit(digits.join(""));
     setDigits(["", "", "", ""]);
-    refs[0].current?.focus();
   };
 
+  // Desktop keyboard support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (disabled) return;
+      if (/^\d$/.test(e.key)) { addDigit(e.key); }
+      else if (e.key === "Backspace") { e.preventDefault(); removeDigit(); }
+      else if (e.key === "Enter") {
+        setDigits((prev) => {
+          if (prev.every((d) => d !== "")) {
+            onSubmit(prev.join(""));
+            return ["", "", "", ""];
+          }
+          return prev;
+        });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [disabled, onSubmit]);
+
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-2.5">
+      {/* Digit display */}
       <div className="flex gap-2">
         {digits.map((d, i) => (
-          <input
-            key={i}
-            ref={refs[i]}
-            type="text"
-            inputMode="numeric"
-            maxLength={1}
-            value={d}
-            onChange={(e) => handleChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            disabled={disabled}
-            className={`w-11 h-12 sm:w-12 sm:h-13 bg-bg-elevated border-2 rounded-lg text-center font-mono text-xl font-bold focus:outline-none transition-colors disabled:opacity-40 ${
-              d ? "border-accent text-text" : "border-border text-text"
-            }`}
-            placeholder="·"
-          />
+          <div key={i} className={`w-11 h-12 sm:w-12 sm:h-13 bg-bg-elevated border-2 rounded-lg flex items-center justify-center font-mono text-xl font-bold transition-colors ${
+            d ? "border-accent text-text" : "border-border text-text-dim"
+          }`}>
+            {d || "·"}
+          </div>
         ))}
       </div>
-      <button
-        onClick={submit}
-        disabled={disabled || !isValid}
-        className="px-8 py-2.5 bg-accent text-bg font-semibold rounded-lg hover:brightness-110 transition-all cursor-pointer active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed text-sm"
-      >
-        Confirm
-      </button>
+
+      {/* Numpad */}
+      <div className="grid grid-cols-3 gap-1.5 w-full max-w-[210px]">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+          <button key={n} type="button" onClick={() => addDigit(String(n))} disabled={disabled || isValid}
+            className="h-11 bg-bg-elevated border border-border rounded-lg font-mono text-lg font-bold hover:bg-bg-hover active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+            {n}
+          </button>
+        ))}
+        <button type="button" onClick={removeDigit} disabled={disabled || filledCount === 0}
+          className="h-11 bg-bg-elevated border border-border rounded-lg text-text-muted hover:text-danger hover:border-danger/30 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33z" />
+          </svg>
+        </button>
+        <button type="button" onClick={() => addDigit("0")} disabled={disabled || isValid}
+          className="h-11 bg-bg-elevated border border-border rounded-lg font-mono text-lg font-bold hover:bg-bg-hover active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+          0
+        </button>
+        <button type="button" onClick={submit} disabled={disabled || !isValid}
+          className="h-11 bg-accent text-bg rounded-lg font-semibold text-sm hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+          {confirmLabel}
+        </button>
+      </div>
     </div>
   );
 }
@@ -325,7 +348,7 @@ function PlayerPanel({
       <div className="flex-1 overflow-y-auto">
         {guesses.length === 0 ? (
           <div className="flex items-center justify-center h-16 text-text-dim text-xs">
-            {isMe ? "Your guesses" : "Their guesses"}
+            {isMe ? t("game.yourGuesses") : t("game.theirGuesses")}
           </div>
         ) : (
           <div className="flex flex-col gap-1">
@@ -468,9 +491,9 @@ function SecretModal({ onSubmit }: { onSubmit: (secret: string) => void }) {
               {remaining}s
             </span>
           </div>
-          <h2 className="text-xl font-bold mb-1">Choose Your Secret</h2>
-          <p className="text-text-muted text-sm mb-6">Pick 4 unique digits. Auto-picks in {remaining}s</p>
-          <DigitInput onSubmit={onSubmit} disabled={false} />
+          <h2 className="text-xl font-bold mb-1">{t("game.chooseSecret")}</h2>
+          <p className="text-text-muted text-sm mb-6">{t("game.chooseSecretDesc")}. {t("game.autoPicks")} {remaining}s</p>
+          <DigitInput onSubmit={onSubmit} disabled={false} confirmLabel={t("game.confirm")} />
         </div>
       </motion.div>
     </motion.div>
@@ -555,6 +578,7 @@ export default function GamePage() {
   const [notepadOpen, setNotepadOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
   const music = useMusicPlayer();
+  const { t } = useT();
   const searchParams = useSearchParams();
   const tutorial = useTutorialTips(game.myGuesses, notepadOpen, game.status === "in_progress", searchParams);
 
@@ -599,7 +623,7 @@ export default function GamePage() {
           {game.status !== "completed" && (
             <button onClick={() => setQuitConfirm(true)}
               className="text-xs text-text-dim border border-border hover:border-danger/30 hover:text-danger hover:bg-danger/5 transition-all cursor-pointer px-3 py-1.5 rounded-lg">
-              Leave
+              {t("game.leave")}
             </button>
           )}
         </div>
@@ -612,16 +636,16 @@ export default function GamePage() {
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
               className="bg-bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center">
-              <h3 className="text-lg font-bold mb-2">Leave Game?</h3>
-              <p className="text-text-muted text-sm mb-5">The game is still in progress. You will forfeit if you leave.</p>
+              <h3 className="text-lg font-bold mb-2">{t("game.leaveTitle")}</h3>
+              <p className="text-text-muted text-sm mb-5">{t("game.leaveDesc")}</p>
               <div className="flex gap-2">
                 <button onClick={() => setQuitConfirm(false)}
                   className="flex-1 py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl hover:bg-bg-hover cursor-pointer">
-                  Stay
+                  {t("game.stay")}
                 </button>
                 <button onClick={() => { game.quitGame(); router.push("/lobby"); }}
                   className="flex-1 py-2.5 bg-danger text-white font-medium rounded-xl hover:brightness-110 cursor-pointer">
-                  Leave
+                  {t("game.leave")}
                 </button>
               </div>
             </motion.div>
@@ -643,7 +667,7 @@ export default function GamePage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <motion.div className="bg-bg-card border border-accent/20 rounded-2xl p-8 max-w-sm w-full text-center">
-              <div className="text-accent text-lg font-medium mb-2">Secret Set!</div>
+              <div className="text-accent text-lg font-medium mb-2">{t("game.confirm")}!</div>
               <div className="font-mono text-2xl font-bold text-accent tracking-[0.3em] mb-3">{game.mySecret}</div>
               <p className="text-text-muted text-sm">{game.opponentSecretSet ? "Starting..." : "Waiting for opponent..."}</p>
               {!game.opponentSecretSet && <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mt-3" />}
@@ -703,7 +727,7 @@ export default function GamePage() {
               </AnimatePresence>
               <div className="flex items-start gap-2">
                 <div className="flex-1">
-                  <DigitInput onSubmit={game.submitGuess} disabled={false} />
+                  <DigitInput onSubmit={game.submitGuess} disabled={false} confirmLabel={t("game.confirm")} />
                 </div>
                 <button
                   onClick={() => setNotepadOpen(!notepadOpen)}
@@ -711,21 +735,21 @@ export default function GamePage() {
                     notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
                   }`}
                 >
-                  Notepad
+                  {t("game.notepad")}
                 </button>
               </div>
             </>
           ) : (
             <div className="flex items-center justify-center gap-2 py-2 text-text-muted">
               <div className="w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm">{game.opponent?.displayName} is thinking...</span>
+              <span className="text-sm">{game.opponent?.displayName} {t("game.waiting")}</span>
               <button
                 onClick={() => setNotepadOpen(!notepadOpen)}
                 className={`lg:hidden ml-2 shrink-0 h-8 px-2.5 rounded-lg border flex items-center justify-center cursor-pointer transition-all text-xs font-medium ${
                   notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
                 }`}
               >
-                Notepad
+                {t("game.notepad")}
               </button>
             </div>
           )}
@@ -742,7 +766,7 @@ export default function GamePage() {
                   </AnimatePresence>
                   <button onClick={() => setNotepadOpen(false)}
                     className="absolute top-2 right-2 text-[10px] text-text-dim hover:text-text-muted cursor-pointer z-10">
-                    Close
+                    {t("game.close")}
                   </button>
                   <Notepad guesses={game.myGuesses} />
                 </div>
@@ -760,11 +784,11 @@ export default function GamePage() {
             {/* Result header */}
             <motion.div initial={{ y: -20 }} animate={{ y: 0 }} className="text-center mb-6">
               <div className="text-4xl mb-2">{isDraw ? "🤝" : isWinner ? "🎉" : "😤"}</div>
-              <h2 className="text-2xl font-bold">{isDraw ? "Draw!" : isWinner ? "Victory!" : "Defeat"}</h2>
+              <h2 className="text-2xl font-bold">{isDraw ? t("game.draw") : isWinner ? t("game.victory") : t("game.defeat")}</h2>
               <p className="text-text-muted text-sm mt-1">
-                {game.result.reason === "opponent_quit" ? "Opponent quit"
-                  : game.result.reason === "timeout" ? (isWinner ? "Opponent timed out" : "You timed out")
-                  : `${Math.max(game.myGuesses.length, game.opponentGuesses.length)} rounds played`}
+                {game.result.reason === "opponent_quit" ? t("game.opponentQuit")
+                  : game.result.reason === "timeout" ? (isWinner ? t("game.opponentTimeout") : t("game.youTimeout"))
+                  : `${Math.max(game.myGuesses.length, game.opponentGuesses.length)} ${t("game.roundsPlayed")}`}
               </p>
               {game.result.eloChange && (
                 <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-bold ${isWinner ? "bg-success/15 text-success" : "bg-danger/15 text-danger"}`}>
@@ -776,7 +800,7 @@ export default function GamePage() {
             {/* Secrets reveal */}
             <div className="flex gap-4 mb-6">
               <div className={`flex-1 rounded-xl p-4 text-center border ${isWinner ? "border-success/30 bg-success/5" : "border-border bg-bg-card"}`}>
-                <div className="text-xs text-text-dim mb-1">Your secret</div>
+                <div className="text-xs text-text-dim mb-1">{t("game.yourSecret")}</div>
                 <div className="font-mono text-2xl font-bold text-accent tracking-widest">
                   {game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret}
                 </div>
@@ -807,8 +831,8 @@ export default function GamePage() {
             {/* Move history side by side - color coded digits */}
             <div className="flex gap-3 mb-6">
               {[
-                { label: "Your moves", target: game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret, guesses: game.myGuesses, secret: game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret },
-                { label: `${game.opponent?.displayName}'s moves`, target: game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret, guesses: game.opponentGuesses, secret: game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret },
+                { label: t("game.yourMoves"), target: game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret, guesses: game.myGuesses, secret: game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret },
+                { label: `${game.opponent?.displayName}`, target: game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret, guesses: game.opponentGuesses, secret: game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret },
               ].map(({ label, target, guesses, secret }) => (
                 <div key={label} className="flex-1 min-w-0">
                   <div className="text-xs text-text-dim font-medium mb-1.5 px-1">{label}</div>
@@ -858,7 +882,7 @@ export default function GamePage() {
             <div className="flex gap-3">
               <button onClick={() => { game.reset(); router.push("/lobby"); }}
                 className="flex-1 py-3 bg-accent text-bg font-semibold rounded-xl hover:brightness-110 transition-all cursor-pointer active:scale-[0.98]">
-                Back to Lobby
+                {t("game.backToLobby")}
               </button>
             </div>
           </div>

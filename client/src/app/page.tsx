@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useT } from "@/lib/i18n";
 
 const DEMO_GUESSES = [
   { guess: "1234", bulls: 0, cows: 2, delay: 0 },
@@ -100,6 +101,7 @@ function DemoRow({
 }
 
 export default function Home() {
+  const { t } = useT();
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 overflow-hidden">
       {/* Background decorations */}
@@ -123,7 +125,7 @@ export default function Home() {
             <span className="text-cow">Cows</span>
           </h1>
           <p className="text-text-muted text-lg">
-            Crack the code. Challenge your friends.
+            {t("landing.title.crack")} {t("landing.title.challenge")}
           </p>
         </motion.div>
 
@@ -174,7 +176,7 @@ export default function Home() {
         >
           <Link href="/login" className="block">
             <button className="w-full px-8 py-4 bg-accent text-bg font-semibold text-lg rounded-xl hover:brightness-110 transition-all duration-200 cursor-pointer active:scale-[0.98]">
-              Play Now
+              {t("landing.playNow")}
             </button>
           </Link>
         </motion.div>
@@ -188,17 +190,17 @@ export default function Home() {
         >
           <div>
             <div className="text-2xl font-bold text-text font-mono">1v1</div>
-            <div className="text-text-dim text-sm">Real-time</div>
+            <div className="text-text-dim text-sm">{t("landing.realTime")}</div>
           </div>
           <div className="w-px bg-border" />
           <div>
             <div className="text-2xl font-bold text-text font-mono">AI</div>
-            <div className="text-text-dim text-sm">3 Difficulties</div>
+            <div className="text-text-dim text-sm">{t("landing.difficulties")}</div>
           </div>
           <div className="w-px bg-border" />
           <div>
             <div className="text-2xl font-bold text-text font-mono">ELO</div>
-            <div className="text-text-dim text-sm">Ranked</div>
+            <div className="text-text-dim text-sm">{t("landing.ranked")}</div>
           </div>
         </motion.div>
       </div>

@@ -86,11 +86,16 @@ function reducer(state: GameState, action: Action): GameState {
     case "SECRET_SET": {
       const role = action.payload.role;
       const isMe = role === state.myRole;
+      const newMySecretSet = isMe ? true : state.mySecretSet;
+      const newOppSecretSet = isMe ? state.opponentSecretSet : true;
       return {
         ...state,
-        mySecretSet: isMe ? true : state.mySecretSet,
-        opponentSecretSet: isMe ? state.opponentSecretSet : true,
+        mySecretSet: newMySecretSet,
+        opponentSecretSet: newOppSecretSet,
         mySecret: isMe && action.secret ? action.secret : state.mySecret,
+        // Auto-transition when both secrets set (defensive: don't rely solely on server:game:start)
+        status: newMySecretSet && newOppSecretSet && state.status === "waiting_secrets"
+          ? "in_progress" : state.status,
       };
     }
     case "GAME_START":
