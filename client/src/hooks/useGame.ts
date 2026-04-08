@@ -18,6 +18,8 @@ interface GameState {
   myGuesses: GuessResult[];
   opponentGuesses: GuessResult[];
   currentRound: number;
+  currentTurn: "host" | "challenger" | null;
+  turnDeadline: number | null; // timestamp ms
   opponent: { userId: string; displayName: string; avatarUrl: string } | null;
   result: {
     winnerId: string | null;
@@ -26,15 +28,15 @@ interface GameState {
     challengerSecret: string;
     eloChange: { host: number; challenger: number } | null;
   } | null;
-  opponentReady: boolean;
+  mySecret: string | null;
 }
 
 type Action =
   | { type: "GAME_STATE"; payload: Record<string, unknown> }
-  | { type: "SECRET_SET"; payload: { role: string } }
+  | { type: "SECRET_SET"; payload: { role: string }; secret?: string }
   | { type: "GAME_START" }
-  | { type: "OPPONENT_READY" }
-  | { type: "ROUND_RESULT"; payload: { myResult: GuessResult; opponentResult: GuessResult; round: number } }
+  | { type: "TURN"; payload: { turn: string; deadline: number } }
+  | { type: "GUESS_RESULT"; payload: { role: string; guess: string; bulls: number; cows: number } }
   | { type: "GAME_OVER"; payload: Record<string, unknown> }
   | { type: "RESET" };
 
@@ -47,15 +49,17 @@ const initialState: GameState = {
   myGuesses: [],
   opponentGuesses: [],
   currentRound: 1,
+  currentTurn: null,
+  turnDeadline: null,
   opponent: null,
   result: null,
-  opponentReady: false,
+  mySecret: null,
 };
 
 function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "GAME_STATE": {
-      const p = action.payload as Record<string, unknown>;
+      const p = action.payload;
       const myRole = p.myRole as string;
       const host = p.host as Record<string, unknown>;
       const challenger = p.challenger as Record<string, unknown>;
@@ -71,6 +75,7 @@ function reducer(state: GameState, action: Action): GameState {
         myGuesses: (me.guesses as GuessResult[]) || [],
         opponentGuesses: (opp.guesses as GuessResult[]) || [],
         currentRound: (p.currentRound as number) || 1,
+        currentTurn: (p.currentTurn as "host" | "challenger") || null,
         opponent: {
           userId: opp.userId as string,
           displayName: opp.displayName as string,
@@ -85,24 +90,35 @@ function reducer(state: GameState, action: Action): GameState {
         ...state,
         mySecretSet: isMe ? true : state.mySecretSet,
         opponentSecretSet: isMe ? state.opponentSecretSet : true,
+        mySecret: isMe && action.secret ? action.secret : state.mySecret,
       };
     }
     case "GAME_START":
       return { ...state, status: "in_progress" };
-    case "OPPONENT_READY":
-      return { ...state, opponentReady: true };
-    case "ROUND_RESULT":
+    case "TURN":
       return {
         ...state,
-        myGuesses: [...state.myGuesses, action.payload.myResult],
-        opponentGuesses: [...state.opponentGuesses, action.payload.opponentResult],
-        currentRound: action.payload.round + 1,
-        opponentReady: false,
+        currentTurn: action.payload.turn as "host" | "challenger",
+        turnDeadline: action.payload.deadline,
       };
+    case "GUESS_RESULT": {
+      const { role, guess, bulls, cows } = action.payload;
+      const isMyGuess = role === state.myRole;
+      const entry = { guess, bulls, cows };
+      const newRound = role === "challenger" ? state.currentRound + 1 : state.currentRound;
+      return {
+        ...state,
+        myGuesses: isMyGuess ? [...state.myGuesses, entry] : state.myGuesses,
+        opponentGuesses: isMyGuess ? state.opponentGuesses : [...state.opponentGuesses, entry],
+        currentRound: state.gameId && state.status === "in_progress" ? newRound : state.currentRound,
+      };
+    }
     case "GAME_OVER":
       return {
         ...state,
         status: "completed",
+        currentTurn: null,
+        turnDeadline: null,
         result: action.payload as GameState["result"],
       };
     case "RESET":
@@ -112,24 +128,27 @@ function reducer(state: GameState, action: Action): GameState {
   }
 }
 
-export function useGame(socket: Socket | null) {
+export function useGame(socket: Socket | null, autoJoinGameId?: string) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
     if (!socket) return;
 
-    const handlers = {
-      "server:game:state": (data: Record<string, unknown>) => dispatch({ type: "GAME_STATE", payload: data }),
-      "server:game:secret-set": (data: { role: string }) => dispatch({ type: "SECRET_SET", payload: data }),
+    const handlers: Record<string, (...args: unknown[]) => void> = {
+      "server:game:state": (data) => dispatch({ type: "GAME_STATE", payload: data as Record<string, unknown> }),
+      "server:game:secret-set": (data) => dispatch({ type: "SECRET_SET", payload: data as { role: string } }),
       "server:game:start": () => dispatch({ type: "GAME_START" }),
-      "server:game:opponent-ready": () => dispatch({ type: "OPPONENT_READY" }),
-      "server:game:round-result": (data: { myResult: GuessResult; opponentResult: GuessResult; round: number }) =>
-        dispatch({ type: "ROUND_RESULT", payload: data }),
-      "server:game:over": (data: Record<string, unknown>) => dispatch({ type: "GAME_OVER", payload: data }),
+      "server:game:turn": (data) => dispatch({ type: "TURN", payload: data as { turn: string; deadline: number } }),
+      "server:game:guess-result": (data) => dispatch({ type: "GUESS_RESULT", payload: data as { role: string; guess: string; bulls: number; cows: number } }),
+      "server:game:over": (data) => dispatch({ type: "GAME_OVER", payload: data as Record<string, unknown> }),
     };
 
     for (const [event, handler] of Object.entries(handlers)) {
       socket.on(event, handler);
+    }
+
+    if (autoJoinGameId) {
+      socket.emit("client:game:join", { gameId: autoJoinGameId });
     }
 
     return () => {
@@ -137,28 +156,15 @@ export function useGame(socket: Socket | null) {
         socket.off(event);
       }
     };
-  }, [socket]);
-
-  const startAI = useCallback(
-    (difficulty: string) => {
-      socket?.emit("client:game:start-ai", { difficulty });
-    },
-    [socket],
-  );
-
-  const joinGame = useCallback(
-    (gameId: string) => {
-      socket?.emit("client:game:join", { gameId });
-    },
-    [socket],
-  );
+  }, [socket, autoJoinGameId]);
 
   const setSecret = useCallback(
     (secret: string) => {
       if (!state.gameId) return;
+      dispatch({ type: "SECRET_SET", payload: { role: state.myRole! }, secret });
       socket?.emit("client:game:set-secret", { gameId: state.gameId, secret });
     },
-    [socket, state.gameId],
+    [socket, state.gameId, state.myRole],
   );
 
   const submitGuess = useCallback(
@@ -176,13 +182,7 @@ export function useGame(socket: Socket | null) {
 
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
 
-  return {
-    ...state,
-    startAI,
-    joinGame,
-    setSecret,
-    submitGuess,
-    quitGame,
-    reset,
-  };
+  const isMyTurn = state.currentTurn === state.myRole;
+
+  return { ...state, isMyTurn, setSecret, submitGuess, quitGame, reset };
 }

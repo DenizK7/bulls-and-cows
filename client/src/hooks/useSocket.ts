@@ -1,30 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Socket } from "socket.io-client";
-import { getSocket, disconnectSocket } from "@/lib/socket";
+import { getSocket } from "@/lib/socket";
 
 export function useSocket() {
   const { data: session } = useSession();
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     const token = (session as { backendToken?: string })?.backendToken;
     if (!token) return;
 
     const s = getSocket(token);
-    socketRef.current = s;
+    setSocket(s);
+    setConnected(s.connected);
 
-    s.on("connect", () => setConnected(true));
-    s.on("disconnect", () => setConnected(false));
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
+
+    s.on("connect", onConnect);
+    s.on("disconnect", onDisconnect);
 
     return () => {
-      s.off("connect");
-      s.off("disconnect");
+      s.off("connect", onConnect);
+      s.off("disconnect", onDisconnect);
     };
   }, [session]);
 
-  return { socket: socketRef.current, connected };
+  return { socket, connected };
 }

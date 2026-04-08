@@ -5,37 +5,37 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useSocket } from "@/hooks/useSocket";
-import { useGame } from "@/hooks/useGame";
 import Image from "next/image";
 
 export default function LobbyPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { socket, connected } = useSocket();
-  const game = useGame(socket);
   const [matchmaking, setMatchmaking] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  // When game starts, navigate to game page
-  useEffect(() => {
-    if (game.gameId && game.status !== "idle") {
-      router.push(`/game/${game.gameId}`);
-    }
-  }, [game.gameId, game.status, router]);
-
-  // Listen for matchmaking found
+  // Listen for game creation (AI or matchmaking) -> navigate
   useEffect(() => {
     if (!socket) return;
+
+    const handleGameState = (data: { gameId: string }) => {
+      router.push(`/game/${data.gameId}`);
+    };
     const handleFound = (data: { gameId: string }) => {
       setMatchmaking(false);
-      game.joinGame(data.gameId);
+      router.push(`/game/${data.gameId}`);
     };
+
+    socket.on("server:game:state", handleGameState);
     socket.on("server:matchmaking:found", handleFound);
-    return () => { socket.off("server:matchmaking:found", handleFound); };
-  }, [socket, game]);
+    return () => {
+      socket.off("server:game:state", handleGameState);
+      socket.off("server:matchmaking:found", handleFound);
+    };
+  }, [socket, router]);
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -48,7 +48,7 @@ export default function LobbyPage() {
   const user = session?.user;
 
   const handlePlayAI = (difficulty: string) => {
-    game.startAI(difficulty);
+    socket?.emit("client:game:start-ai", { difficulty });
   };
 
   const handleFindMatch = () => {
