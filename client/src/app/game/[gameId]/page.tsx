@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "@/hooks/useSocket";
+import { useMusicPlayer } from "@/components/MusicPlayer";
 import { useGame } from "@/hooks/useGame";
 
 function TurnTimer({ deadline, isMyTurn, frozen }: { deadline: number | null; isMyTurn: boolean; frozen?: boolean }) {
@@ -553,6 +554,7 @@ export default function GamePage() {
   const game = useGame(socket, gameId);
   const [notepadOpen, setNotepadOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
+  const music = useMusicPlayer();
   const searchParams = useSearchParams();
   const tutorial = useTutorialTips(game.myGuesses, notepadOpen, game.status === "in_progress", searchParams);
 
@@ -582,12 +584,25 @@ export default function GamePage() {
         <div className="flex-1 flex justify-center">
           {game.status === "in_progress" && <TurnTimer deadline={game.turnDeadline} isMyTurn={game.isMyTurn} frozen={tutorial.hasActiveTip} />}
         </div>
-        {game.status !== "completed" && (
-          <button onClick={() => setQuitConfirm(true)}
-            className="shrink-0 text-xs text-text-dim border border-border hover:border-danger/30 hover:text-danger hover:bg-danger/5 transition-all cursor-pointer px-3 py-1.5 rounded-lg">
-            Leave
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button onClick={music.toggle}
+            className={`w-7 h-7 rounded-md border flex items-center justify-center cursor-pointer transition-all ${music.playing ? "border-accent/30 text-accent" : "border-border text-text-dim"}`}
+            title={music.playing ? "Mute" : "Unmute"}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {music.playing ? (
+                <><path d="M11 5L6 9H2v6h4l5 4V5z" strokeLinecap="round" strokeLinejoin="round" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" strokeLinecap="round" /></>
+              ) : (
+                <><path d="M11 5L6 9H2v6h4l5 4V5z" strokeLinecap="round" strokeLinejoin="round" /><line x1="23" y1="9" x2="17" y2="15" strokeLinecap="round" /><line x1="17" y1="9" x2="23" y2="15" strokeLinecap="round" /></>
+              )}
+            </svg>
           </button>
-        )}
+          {game.status !== "completed" && (
+            <button onClick={() => setQuitConfirm(true)}
+              className="text-xs text-text-dim border border-border hover:border-danger/30 hover:text-danger hover:bg-danger/5 transition-all cursor-pointer px-3 py-1.5 rounded-lg">
+              Leave
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Quit confirmation modal */}
