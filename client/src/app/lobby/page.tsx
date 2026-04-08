@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useSocket } from "@/hooks/useSocket";
+import { useMusicPlayer } from "@/components/MusicPlayer";
 import Image from "next/image";
 
 interface Friend {
@@ -44,6 +45,7 @@ export default function LobbyPage() {
   const [waitingInvite, setWaitingInvite] = useState<{ friendName: string; timeout: ReturnType<typeof setTimeout> } | null>(null);
   const [readyState, setReadyState] = useState<{ inviteId: string; readyCount: number; amReady: boolean; countdown: number | null } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const music = useMusicPlayer();
   const [editName, setEditName] = useState("");
   const [nameMsg, setNameMsg] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -279,6 +281,20 @@ export default function LobbyPage() {
                             className={`px-2 py-1 text-[10px] font-medium cursor-pointer ${localStorage.getItem("lang") !== "tr" ? "bg-accent/20 text-accent" : "text-text-dim"}`}>EN</button>
                           <button onClick={() => { localStorage.setItem("lang", "tr"); window.location.reload(); }}
                             className={`px-2 py-1 text-[10px] font-medium cursor-pointer ${localStorage.getItem("lang") === "tr" ? "bg-accent/20 text-accent" : "text-text-dim"}`}>TR</button>
+                        </div>
+                      </div>
+
+                      {/* Music */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-muted">Music</span>
+                        <div className="flex items-center gap-2">
+                          <input type="range" min="0" max="1" step="0.05" value={music.volume}
+                            onChange={(e) => music.setVolume(parseFloat(e.target.value))}
+                            className="w-16 h-1 accent-accent cursor-pointer" />
+                          <button onClick={music.toggle}
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium cursor-pointer ${music.playing ? "bg-accent/20 text-accent" : "bg-bg-elevated text-text-dim"}`}>
+                            {music.playing ? "On" : "Off"}
+                          </button>
                         </div>
                       </div>
 
