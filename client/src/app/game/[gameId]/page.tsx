@@ -9,66 +9,31 @@ import { useGame } from "@/hooks/useGame";
 
 function TurnTimer({ deadline, isMyTurn }: { deadline: number | null; isMyTurn: boolean }) {
   const [remaining, setRemaining] = useState(60);
-  const [elapsed, setElapsed] = useState(0);
-  const [turnStart] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!deadline) {
-      // AI mode - count up
-      const interval = setInterval(() => setElapsed(Math.floor((Date.now() - turnStart) / 1000)), 200);
-      return () => clearInterval(interval);
-    }
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setRemaining(left);
-    };
+    if (!deadline) return;
+    const tick = () => setRemaining(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
     tick();
     const interval = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [deadline, turnStart]);
+  }, [deadline]);
 
-  // No deadline = AI game, show elapsed time
-  if (!deadline) {
-    return (
-      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-accent/20 bg-bg-card">
-        <div className={`w-2 h-2 rounded-full ${isMyTurn ? "bg-accent animate-pulse" : "bg-text-dim animate-pulse"}`} />
-        <span className="text-sm font-medium text-text-muted">
-          {isMyTurn ? "Your turn" : "AI is thinking..."}
-        </span>
-        <span className="font-mono text-sm text-text-dim tabular-nums">{elapsed}s</span>
-      </div>
-    );
-  }
-
-  const pct = remaining / 60;
-  const color =
-    pct > 0.5 ? "text-success" : pct > 0.2 ? "text-warning" : "text-danger";
-  const bgColor =
-    pct > 0.5 ? "bg-success" : pct > 0.2 ? "bg-warning" : "bg-danger";
-  const borderColor =
-    pct > 0.5 ? "border-success/30" : pct > 0.2 ? "border-warning/30" : "border-danger/30";
+  const pct = deadline ? remaining / 60 : 1;
+  const color = pct > 0.5 ? "text-success" : pct > 0.2 ? "text-warning" : "text-danger animate-pulse";
+  const barColor = pct > 0.5 ? "bg-success" : pct > 0.2 ? "bg-warning" : "bg-danger";
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border ${borderColor} bg-bg-card`}>
-      <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${bgColor} ${remaining <= 10 ? "animate-pulse" : ""}`} />
-        <span className="text-sm font-medium text-text-muted">
-          {isMyTurn ? "Your turn" : "Opponent's turn"}
-        </span>
+    <div className="flex items-center gap-2">
+      <span className={`font-mono text-sm font-bold tabular-nums ${color}`}>
+        {deadline ? `${remaining}s` : "..."}
+      </span>
+      <div className="w-16 sm:w-24 h-1 bg-bg-elevated rounded-full overflow-hidden">
+        <motion.div className={`h-full ${barColor} rounded-full`}
+          animate={{ width: `${pct * 100}%` }} transition={{ duration: 0.3 }} />
       </div>
-      <div className="flex items-center gap-2">
-        <div className="w-24 h-1.5 bg-bg-elevated rounded-full overflow-hidden">
-          <motion.div
-            className={`h-full ${bgColor} rounded-full`}
-            initial={{ width: "100%" }}
-            animate={{ width: `${pct * 100}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        </div>
-        <span className={`font-mono font-bold text-lg tabular-nums ${color}`}>
-          {remaining}s
-        </span>
-      </div>
+      <span className="text-[10px] text-text-dim hidden sm:inline">
+        {isMyTurn ? "you" : "opp"}
+      </span>
     </div>
   );
 }
@@ -188,9 +153,8 @@ function Notepad({
       </div>
 
       <div className="flex justify-center gap-3 mt-2 text-[9px] text-text-dim">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cow inline-block" />maybe</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success inline-block" />placed</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger/50 inline-block" />nope</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-bull inline-block" /> = right spot</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full border-2 border-cow inline-block" /> = wrong spot</span>
       </div>
     </div>
   );
@@ -253,7 +217,7 @@ function DigitInput({
             onChange={(e) => handleChange(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}
             disabled={disabled}
-            className={`w-12 h-14 sm:w-14 sm:h-16 bg-bg-elevated border-2 rounded-xl text-center font-mono text-2xl font-bold focus:outline-none transition-colors disabled:opacity-40 ${
+            className={`w-11 h-12 sm:w-12 sm:h-13 bg-bg-elevated border-2 rounded-lg text-center font-mono text-xl font-bold focus:outline-none transition-colors disabled:opacity-40 ${
               d ? "border-accent text-text" : "border-border text-text"
             }`}
             placeholder="·"
@@ -284,38 +248,23 @@ function GuessRow({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="flex items-center gap-2"
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.03 }}
+      className="flex flex-col gap-0.5"
     >
-      <span className="text-text-dim text-[10px] font-mono w-4 text-right shrink-0">
-        {index + 1}
-      </span>
-      <div className="flex gap-1">
+      <div className="flex items-center gap-1">
+        <span className="text-text-dim text-[9px] font-mono w-3 text-right shrink-0">{index + 1}</span>
         {guess.split("").map((d, i) => (
-          <div
-            key={i}
-            className="w-9 h-10 bg-bg-elevated border border-border rounded-md flex items-center justify-center font-mono text-sm font-bold text-text"
-          >
+          <div key={i} className="w-7 h-7 bg-bg-elevated rounded flex items-center justify-center font-mono text-xs font-bold text-text">
             {d}
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-1.5 ml-1.5">
-        {bulls > 0 && (
-          <span className="flex items-center gap-0.5 bg-bull/15 text-bull text-xs font-bold pl-1 pr-1.5 py-0.5 rounded-full">
-            <span className="text-[11px]">🎯</span>{bulls}
-          </span>
-        )}
-        {cows > 0 && (
-          <span className="flex items-center gap-0.5 bg-cow/15 text-cow text-xs font-bold pl-1 pr-1.5 py-0.5 rounded-full">
-            <span className="text-[11px]">🔄</span>{cows}
-          </span>
-        )}
-        {bulls === 0 && cows === 0 && (
-          <span className="text-text-dim text-xs">✕</span>
-        )}
+      <div className="flex items-center gap-1 ml-4">
+        {Array.from({ length: bulls }).map((_, i) => <span key={`b${i}`} className="w-2.5 h-2.5 rounded-full bg-bull inline-block" />)}
+        {Array.from({ length: cows }).map((_, i) => <span key={`c${i}`} className="w-2.5 h-2.5 rounded-full border-2 border-cow inline-block" />)}
+        {bulls === 0 && cows === 0 && <span className="text-text-dim text-[10px]">--</span>}
       </div>
     </motion.div>
   );
@@ -539,16 +488,12 @@ export default function GamePage() {
       {/* Split screen - both always visible, active panel grows */}
       <div className="flex-1 flex min-h-0 px-3 sm:px-4 gap-2 sm:gap-3">
         {/* My panel */}
-        <motion.div
-          animate={{ flex: game.isMyTurn ? 3 : 2 }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
-          className={`min-w-0 flex flex-col rounded-xl border transition-colors duration-300 ${game.isMyTurn ? "border-accent/20 bg-bg-card/50" : "border-border/50"}`}
-        >
+        <div className={`flex-1 min-w-0 flex flex-col rounded-xl border transition-colors duration-300 ${game.isMyTurn ? "border-accent/20 bg-bg-card/50" : "border-border/50"}`}>
           <PlayerPanel
             label={session?.user?.name || "You"} avatarUrl={session?.user?.image || ""}
             isMe={true} guesses={game.myGuesses} secretSet={game.mySecretSet} won={isWinner} mySecret={game.mySecret || undefined}
           />
-        </motion.div>
+        </div>
 
         {/* Divider */}
         <div className="w-px bg-border relative shrink-0 my-2">
@@ -556,17 +501,13 @@ export default function GamePage() {
         </div>
 
         {/* Opponent panel */}
-        <motion.div
-          animate={{ flex: game.isMyTurn ? 2 : 3 }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
-          className={`min-w-0 flex flex-col rounded-xl border transition-colors duration-300 ${!game.isMyTurn ? "border-accent/20 bg-bg-card/50" : "border-border/50"}`}
-        >
+        <div className={`flex-1 min-w-0 flex flex-col rounded-xl border transition-colors duration-300 ${!game.isMyTurn ? "border-accent/20 bg-bg-card/50" : "border-border/50"}`}>
           <PlayerPanel
             label={game.opponent.displayName} avatarUrl={game.opponent.avatarUrl}
             isMe={false} guesses={game.opponentGuesses} secretSet={game.opponentSecretSet}
             won={game.result?.winnerId === game.opponent.userId}
           />
-        </motion.div>
+        </div>
 
         {/* Notepad sidebar - desktop only */}
         {game.status === "in_progress" && (
@@ -626,47 +567,105 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* Game Over Modal */}
-      <AnimatePresence>
-        {game.status === "completed" && game.result && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <motion.div initial={{ y: 30 }} animate={{ y: 0 }}
-              className="bg-bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center">
-              <div className="text-5xl mb-3">{isDraw ? "🤝" : isWinner ? "🎉" : "😔"}</div>
-              <h2 className="text-2xl font-bold mb-1">{isDraw ? "Draw!" : isWinner ? "You Won!" : "You Lost"}</h2>
-              <p className="text-text-muted text-sm mb-4">
-                {game.result.reason === "opponent_quit" ? "Opponent quit the game"
-                  : game.result.reason === "timeout" ? (isWinner ? "Opponent ran out of time!" : "You ran out of time!")
-                  : `Finished in ${game.myGuesses.length} guesses`}
+      {/* Game Over - Full Summary Page */}
+      {game.status === "completed" && game.result && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 bg-bg overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 py-6">
+            {/* Result header */}
+            <motion.div initial={{ y: -20 }} animate={{ y: 0 }} className="text-center mb-6">
+              <div className="text-4xl mb-2">{isDraw ? "🤝" : isWinner ? "🎉" : "😤"}</div>
+              <h2 className="text-2xl font-bold">{isDraw ? "Draw!" : isWinner ? "Victory!" : "Defeat"}</h2>
+              <p className="text-text-muted text-sm mt-1">
+                {game.result.reason === "opponent_quit" ? "Opponent quit"
+                  : game.result.reason === "timeout" ? (isWinner ? "Opponent timed out" : "You timed out")
+                  : `${Math.max(game.myGuesses.length, game.opponentGuesses.length)} rounds played`}
               </p>
-              <div className="flex justify-center gap-6 mb-6 text-sm">
-                <div>
-                  <div className="text-text-dim">Your secret</div>
-                  <div className="font-mono font-bold text-lg text-accent">
-                    {game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-text-dim">Their secret</div>
-                  <div className="font-mono font-bold text-lg text-accent">
-                    {game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret}
-                  </div>
-                </div>
-              </div>
               {game.result.eloChange && (
-                <div className={`text-sm font-medium mb-4 ${isWinner ? "text-success" : "text-danger"}`}>
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-bold ${isWinner ? "bg-success/15 text-success" : "bg-danger/15 text-danger"}`}>
                   ELO {isWinner ? "+" : ""}{game.myRole === "host" ? game.result.eloChange.host : game.result.eloChange.challenger}
-                </div>
+                </span>
               )}
+            </motion.div>
+
+            {/* Secrets reveal */}
+            <div className="flex gap-4 mb-6">
+              <div className={`flex-1 rounded-xl p-4 text-center border ${isWinner ? "border-success/30 bg-success/5" : "border-border bg-bg-card"}`}>
+                <div className="text-xs text-text-dim mb-1">Your secret</div>
+                <div className="font-mono text-2xl font-bold text-accent tracking-widest">
+                  {game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret}
+                </div>
+                <div className="text-xs text-text-dim mt-1">{game.myGuesses.length} guesses</div>
+              </div>
+              <div className={`flex-1 rounded-xl p-4 text-center border ${!isWinner && !isDraw ? "border-success/30 bg-success/5" : "border-border bg-bg-card"}`}>
+                <div className="text-xs text-text-dim mb-1">{game.opponent?.displayName}</div>
+                <div className="font-mono text-2xl font-bold text-accent tracking-widest">
+                  {game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret}
+                </div>
+                <div className="text-xs text-text-dim mt-1">{game.opponentGuesses.length} guesses</div>
+              </div>
+            </div>
+
+            {/* Move history side by side - color coded digits */}
+            <div className="flex gap-3 mb-6">
+              {[
+                { label: "Your moves", target: game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret, guesses: game.myGuesses, secret: game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret },
+                { label: `${game.opponent?.displayName}'s moves`, target: game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret, guesses: game.opponentGuesses, secret: game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret },
+              ].map(({ label, target, guesses, secret }) => (
+                <div key={label} className="flex-1 min-w-0">
+                  <div className="text-xs text-text-dim font-medium mb-1.5 px-1">{label}</div>
+                  {/* Target number - same style as guess rows */}
+                  <div className="flex items-center gap-0.5 mb-2 px-2 py-1.5 bg-accent/10 border border-accent/20 rounded-lg">
+                    <span className="text-[9px] text-accent w-3 shrink-0">?</span>
+                    <div className="flex gap-0.5">
+                      {target.split("").map((d, j) => (
+                        <span key={j} className="w-5 h-5 rounded flex items-center justify-center font-mono text-[11px] bg-accent/20 text-accent font-bold">{d}</span>
+                      ))}
+                    </div>
+                    <span className="ml-auto text-[10px] text-accent">secret</span>
+                  </div>
+                  <div className="bg-bg-card border border-border rounded-xl p-2 space-y-1.5 max-h-72 overflow-y-auto">
+                    {guesses.map((g, i) => {
+                      // Color each digit: green=bull, blue=cow, dim=miss
+                      const digitColors = g.guess.split("").map((d, pos) => {
+                        if (d === secret[pos]) return "text-bull font-bold";
+                        if (secret.includes(d)) return "text-cow font-bold";
+                        return "text-text-dim";
+                      });
+                      return (
+                        <div key={i} className="flex items-center gap-0.5 text-[11px]">
+                          <span className="text-text-dim w-3 text-right font-mono shrink-0">{i+1}</span>
+                          <div className="flex gap-0.5">
+                            {g.guess.split("").map((d, j) => (
+                              <span key={j} className={`w-5 h-5 rounded flex items-center justify-center font-mono text-[11px] ${
+                                digitColors[j] === "text-bull font-bold" ? "bg-bull/20 text-bull font-bold"
+                                : digitColors[j] === "text-cow font-bold" ? "bg-cow/20 text-cow font-bold"
+                                : "bg-bg-elevated text-text-dim"
+                              }`}>{d}</span>
+                            ))}
+                          </div>
+                          <span className="ml-auto flex gap-0.5 shrink-0">
+                            {Array.from({ length: g.bulls }).map((_, k) => <span key={`b${k}`} className="w-2 h-2 rounded-full bg-bull inline-block" />)}
+                            {Array.from({ length: g.cows }).map((_, k) => <span key={`c${k}`} className="w-2 h-2 rounded-full border-[1.5px] border-cow inline-block" />)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
               <button onClick={() => { game.reset(); router.push("/lobby"); }}
-                className="w-full py-3 bg-accent text-bg font-semibold rounded-xl hover:brightness-110 transition-all cursor-pointer active:scale-[0.98]">
+                className="flex-1 py-3 bg-accent text-bg font-semibold rounded-xl hover:brightness-110 transition-all cursor-pointer active:scale-[0.98]">
                 Back to Lobby
               </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -193,7 +193,7 @@ export default function Home() {
               Play Now
             </button>
           </Link>
-          <Link href="/login" className="flex-1">
+          <Link href="/how-to-play" className="flex-1">
             <button className="w-full px-8 py-4 bg-bg-elevated border border-border text-text font-semibold text-lg rounded-xl hover:bg-bg-hover hover:border-border-light transition-all duration-200 cursor-pointer active:scale-[0.98]">
               How to Play
             </button>

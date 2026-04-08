@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { useSocket } from "@/hooks/useSocket";
 import Image from "next/image";
 
@@ -137,6 +138,7 @@ export default function LobbyPage() {
               <span className="text-text-dim mx-1">&</span>
               <span className="text-cow">Cows</span>
             </h1>
+            <Link href="/how-to-play" className="w-6 h-6 rounded-full border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer" title="How to play">?</Link>
             <div className="flex items-center gap-1.5">
               <div className={`w-2 h-2 rounded-full ${connected ? "bg-online animate-pulse" : "bg-danger"}`} />
               <span className="text-text-dim text-xs">{connected ? "Online" : "..."}</span>
