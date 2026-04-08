@@ -7,7 +7,7 @@ RUN npm ci --workspace=@bulls-and-cows/shared --workspace=@bulls-and-cows/server
 COPY packages/shared ./packages/shared
 COPY server ./server
 COPY packages/shared/tsconfig.json ./packages/shared/
-RUN npm run build -w @bulls-and-cows/shared && cd server && npx tsc --skipLibCheck
+RUN npm run build -w @bulls-and-cows/shared && npm run build -w @bulls-and-cows/server
 
 FROM node:20-alpine
 WORKDIR /app
