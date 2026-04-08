@@ -24,6 +24,7 @@ export interface IGame extends Document {
     challenger: PlayerData;
   };
   currentRound: number;
+  turnTimeMs: number;
   result: {
     winnerId: Types.ObjectId | string | null;
     reason: 'guessed' | 'opponent_quit' | 'timeout' | 'draw';
@@ -72,6 +73,7 @@ const gameSchema = new Schema<IGame>(
       challenger: { type: playerSchema, required: true },
     },
     currentRound: { type: Number, default: 1 },
+    turnTimeMs: { type: Number, default: 60000 },
     result: { type: Schema.Types.Mixed, default: null },
     startedAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },

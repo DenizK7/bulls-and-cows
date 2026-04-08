@@ -415,6 +415,57 @@ function useTutorialTips(guesses: { bulls: number; cows: number }[], notepadOpen
   return { input, notepad, guessArea, hasActiveTip, dismiss, isTutorial };
 }
 
+function SecretModal({ onSubmit }: { onSubmit: (secret: string) => void }) {
+  const [remaining, setRemaining] = useState(30);
+  const [deadline] = useState(() => Date.now() + 30000);
+
+  useEffect(() => {
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setRemaining(left);
+      if (left <= 0) {
+        // Auto-generate random secret
+        const digits = [0,1,2,3,4,5,6,7,8,9];
+        for (let i = digits.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [digits[i], digits[j]] = [digits[j], digits[i]]; }
+        onSubmit(digits.slice(0, 4).join(""));
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 200);
+    return () => clearInterval(interval);
+  }, [deadline, onSubmit]);
+
+  const pct = remaining / 30;
+  const circumference = 2 * Math.PI * 58;
+  const dashOffset = circumference * (1 - pct);
+  const color = pct > 0.5 ? "#6ee7a0" : pct > 0.2 ? "#f0d45b" : "#f07070";
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+        className="relative max-w-sm w-full">
+        {/* Circular timer around modal */}
+        <svg className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)]" viewBox="0 0 120 140" preserveAspectRatio="none">
+          <rect x="1" y="1" width="118" height="138" rx="18" fill="none" stroke={color} strokeWidth="2"
+            strokeDasharray={`${2*(118+138)}`} strokeDashoffset={`${2*(118+138) * (1 - pct)}`}
+            opacity="0.6" className="transition-all duration-200" />
+        </svg>
+        <div className="bg-bg-card border border-border rounded-2xl p-8 text-center relative">
+          <div className="absolute top-3 right-4">
+            <span className={`font-mono text-sm font-bold ${pct > 0.5 ? "text-success" : pct > 0.2 ? "text-warning" : "text-danger animate-pulse"}`}>
+              {remaining}s
+            </span>
+          </div>
+          <h2 className="text-xl font-bold mb-1">Choose Your Secret</h2>
+          <p className="text-text-muted text-sm mb-6">Pick 4 unique digits. Auto-picks in {remaining}s</p>
+          <DigitInput onSubmit={onSubmit} disabled={false} />
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function GamePanelTabs({
   myName, myAvatar, myGuesses, mySecretSet, mySecret, isWinner,
   opponentName, opponentAvatar, opponentGuesses, opponentSecretSet, opponentWon,
@@ -558,18 +609,10 @@ export default function GamePage() {
         {tutorial.hasActiveTip && <TutorialOverlay />}
       </AnimatePresence>
 
-      {/* Secret Setting Modal */}
+      {/* Secret Setting Modal with 30s timer */}
       <AnimatePresence>
         {game.status === "waiting_secrets" && !game.mySecretSet && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="bg-bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center">
-              <h2 className="text-xl font-bold mb-1">Choose Your Secret</h2>
-              <p className="text-text-muted text-sm mb-6">Pick 4 unique digits for your opponent to guess</p>
-              <DigitInput onSubmit={game.setSecret} disabled={false} />
-            </motion.div>
-          </motion.div>
+          <SecretModal onSubmit={game.setSecret} />
         )}
         {game.status === "waiting_secrets" && game.mySecretSet && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

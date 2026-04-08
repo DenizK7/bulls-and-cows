@@ -3,6 +3,7 @@ import { verifyJwt } from '../services/auth.service.js';
 import { User } from '../models/User.model.js';
 import { handleGameEvents } from './game.handler.js';
 import { handleMatchmakingEvents } from './matchmaking.handler.js';
+import { handleInviteEvents } from './invite.handler.js';
 import { redis } from '../config/redis.js';
 import { Game } from '../models/Game.model.js';
 import { cleanupAIGame } from '../services/ai.service.js';
@@ -48,6 +49,7 @@ export function setupSocket(io: Server): void {
     // Register event handlers
     handleGameEvents(io, socket);
     handleMatchmakingEvents(io, socket);
+    handleInviteEvents(io, socket);
 
     socket.on('disconnect', async () => {
       console.log(`Disconnected: ${socket.displayName}`);

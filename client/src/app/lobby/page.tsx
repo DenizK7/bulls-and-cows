@@ -36,6 +36,11 @@ export default function LobbyPage() {
   const [friendTag, setFriendTag] = useState("");
   const [friendMsg, setFriendMsg] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  // Invite state
+  const [inviteModal, setInviteModal] = useState<{ friendId: string; friendName: string } | null>(null);
+  const [inviteTurnTime, setInviteTurnTime] = useState(60000);
+  const [pendingInvite, setPendingInvite] = useState<{ inviteId: string; from: { displayName: string }; turnTimeMs: number } | null>(null);
+  const [readyState, setReadyState] = useState<{ inviteId: string; readyCount: number; amReady: boolean; countdown: number | null } | null>(null);
 
   const token = (session as { backendToken?: string })?.backendToken;
 
@@ -65,15 +70,46 @@ export default function LobbyPage() {
     const handleFriendOnline = (data: { userId: string }) => setOnlineUsers((p) => new Set(p).add(data.userId));
     const handleFriendOffline = (data: { userId: string }) => setOnlineUsers((p) => { const n = new Set(p); n.delete(data.userId); return n; });
 
+    const handleInviteReceived = (data: { inviteId: string; from: { displayName: string }; turnTimeMs: number }) => {
+      setPendingInvite(data);
+    };
+    const handleInviteAccepted = (data: { inviteId: string }) => {
+      setReadyState({ inviteId: data.inviteId, readyCount: 0, amReady: false, countdown: null });
+      setInviteModal(null);
+    };
+    const handlePlayerReady = (data: { inviteId: string; readyCount: number }) => {
+      setReadyState(prev => prev ? { ...prev, readyCount: data.readyCount } : null);
+    };
+    const handleStarting = (data: { inviteId: string; countdown: number }) => {
+      setReadyState(prev => prev ? { ...prev, countdown: data.countdown } : null);
+    };
+    const handleGameCreated = (data: { gameId: string }) => {
+      setReadyState(null); setPendingInvite(null);
+      router.push(`/game/${data.gameId}`);
+    };
+    const handleInviteDeclined = () => { setInviteModal(null); setReadyState(null); };
+
     socket.on("server:game:state", handleGameState);
     socket.on("server:matchmaking:found", handleFound);
     socket.on("server:friend:online", handleFriendOnline);
     socket.on("server:friend:offline", handleFriendOffline);
+    socket.on("server:invite:received", handleInviteReceived);
+    socket.on("server:invite:accepted", handleInviteAccepted);
+    socket.on("server:invite:player-ready", handlePlayerReady);
+    socket.on("server:invite:starting", handleStarting);
+    socket.on("server:invite:game-created", handleGameCreated);
+    socket.on("server:invite:declined", handleInviteDeclined);
     return () => {
       socket.off("server:game:state", handleGameState);
       socket.off("server:matchmaking:found", handleFound);
       socket.off("server:friend:online", handleFriendOnline);
       socket.off("server:friend:offline", handleFriendOffline);
+      socket.off("server:invite:received", handleInviteReceived);
+      socket.off("server:invite:accepted", handleInviteAccepted);
+      socket.off("server:invite:player-ready", handlePlayerReady);
+      socket.off("server:invite:starting", handleStarting);
+      socket.off("server:invite:game-created", handleGameCreated);
+      socket.off("server:invite:declined", handleInviteDeclined);
     };
   }, [socket, router]);
 
@@ -350,7 +386,8 @@ export default function LobbyPage() {
                             <div className="text-[10px] text-text-dim">ELO {f.stats?.eloRating || 1200}</div>
                           </div>
                         </div>
-                        <button className="px-3 py-1.5 bg-accent/15 text-accent text-xs font-medium rounded-lg cursor-pointer hover:bg-accent/25">
+                        <button onClick={() => setInviteModal({ friendId: f._id, friendName: f.displayName })}
+                          className="px-3 py-1.5 bg-accent/15 text-accent text-xs font-medium rounded-lg cursor-pointer hover:bg-accent/25">
                           Invite
                         </button>
                       </div>
@@ -368,6 +405,113 @@ export default function LobbyPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Invite Modal - select turn time and send */}
+      <AnimatePresence>
+        {inviteModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
+              className="bg-bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center">
+              <h3 className="text-lg font-bold mb-1">Invite {inviteModal.friendName}</h3>
+              <p className="text-text-muted text-xs mb-4">Choose turn time limit</p>
+              <div className="flex gap-2 mb-5">
+                {[
+                  { ms: 30000, label: "30s", desc: "Fast" },
+                  { ms: 60000, label: "60s", desc: "Normal" },
+                  { ms: 120000, label: "2min", desc: "Chill" },
+                ].map((t) => (
+                  <button key={t.ms} onClick={() => setInviteTurnTime(t.ms)}
+                    className={`flex-1 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      inviteTurnTime === t.ms ? "border-accent bg-accent/10 text-accent" : "border-border text-text-muted hover:border-border-light"
+                    }`}>
+                    <div className="font-bold">{t.label}</div>
+                    <div className="text-[10px] opacity-70">{t.desc}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setInviteModal(null)}
+                  className="flex-1 py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl cursor-pointer hover:bg-bg-hover">
+                  Cancel
+                </button>
+                <button onClick={() => {
+                  socket?.emit("client:invite:send", { toUserId: inviteModal.friendId, turnTime: inviteTurnTime });
+                  setInviteModal(null);
+                }}
+                  className="flex-1 py-2.5 bg-accent text-bg font-semibold rounded-xl cursor-pointer hover:brightness-110">
+                  Send Invite
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Incoming Invite */}
+      <AnimatePresence>
+        {pendingInvite && !readyState && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="bg-bg-card border border-accent/20 rounded-2xl p-6 max-w-xs w-full text-center">
+              <div className="text-3xl mb-2">⚔️</div>
+              <h3 className="text-lg font-bold mb-1">Game Invite!</h3>
+              <p className="text-text-muted text-sm mb-1"><strong className="text-text">{pendingInvite.from.displayName}</strong> wants to play</p>
+              <p className="text-text-dim text-xs mb-5">Turn time: {pendingInvite.turnTimeMs / 1000}s</p>
+              <div className="flex gap-2">
+                <button onClick={() => { socket?.emit("client:invite:decline", { inviteId: pendingInvite.inviteId }); setPendingInvite(null); }}
+                  className="flex-1 py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl cursor-pointer hover:bg-bg-hover">
+                  Decline
+                </button>
+                <button onClick={() => { socket?.emit("client:invite:accept", { inviteId: pendingInvite.inviteId }); }}
+                  className="flex-1 py-2.5 bg-accent text-bg font-semibold rounded-xl cursor-pointer hover:brightness-110">
+                  Accept
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Ready Up Screen */}
+      <AnimatePresence>
+        {readyState && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
+              className="bg-bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center">
+              {readyState.countdown !== null ? (
+                <>
+                  <div className="text-4xl font-bold text-accent mb-2">{readyState.countdown}</div>
+                  <p className="text-text-muted text-sm">Game starting...</p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-bold mb-3">Ready Up</h3>
+                  <div className="flex justify-center gap-4 mb-5">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${readyState.amReady ? "bg-success/20 text-success" : "bg-bg-elevated text-text-dim"}`}>
+                      {readyState.amReady ? "✓" : "?"}
+                    </div>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${readyState.readyCount >= 2 ? "bg-success/20 text-success" : "bg-bg-elevated text-text-dim"}`}>
+                      {readyState.readyCount >= 2 ? "✓" : "?"}
+                    </div>
+                  </div>
+                  <p className="text-text-dim text-xs mb-4">{readyState.readyCount}/2 ready</p>
+                  <button
+                    onClick={() => { if (!readyState.amReady) { socket?.emit("client:invite:ready", { inviteId: readyState.inviteId }); setReadyState(prev => prev ? { ...prev, amReady: true } : null); } }}
+                    disabled={readyState.amReady}
+                    className={`w-full py-3 font-semibold rounded-xl cursor-pointer transition-all ${
+                      readyState.amReady ? "bg-success/20 text-success" : "bg-accent text-bg hover:brightness-110"
+                    }`}>
+                    {readyState.amReady ? "Waiting for opponent..." : "Ready!"}
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

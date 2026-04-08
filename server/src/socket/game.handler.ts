@@ -7,8 +7,9 @@ import { User } from '../models/User.model.js';
 import { evaluate } from '../utils/bulls-cows.js';
 import { initAIGame, getAIGuess, processAIResult, getAISecret, cleanupAIGame } from '../services/ai.service.js';
 
-const TURN_TIME_MS = 60_000; // 60 seconds per turn
+const DEFAULT_TURN_TIME_MS = 60_000;
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const gameTurnTimes = new Map<string, number>(); // cache turn time per game
 
 function gameRoom(id: string) { return `game:${id}`; }
 
@@ -20,8 +21,8 @@ function clearTurnTimer(gameId: string) {
 function startTurnTimer(io: Server, gameId: string, currentTurn: 'host' | 'challenger') {
   clearTurnTimer(gameId);
 
-  // Tell everyone the turn started with deadline
-  const deadline = Date.now() + TURN_TIME_MS;
+  const turnTimeMs = gameTurnTimes.get(gameId) || DEFAULT_TURN_TIME_MS;
+  const deadline = Date.now() + turnTimeMs;
   io.to(gameRoom(gameId)).emit('server:game:turn', { turn: currentTurn, deadline });
 
   const timer = setTimeout(async () => {
@@ -45,7 +46,7 @@ function startTurnTimer(io: Server, gameId: string, currentTurn: 'host' | 'chall
     } catch (err) {
       console.error('Turn timeout error:', err);
     }
-  }, TURN_TIME_MS);
+  }, turnTimeMs);
 
   turnTimers.set(gameId, timer);
 }
@@ -172,7 +173,8 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
       io.to(gameRoom(gameId)).emit('server:game:secret-set', { role: isHost ? 'host' : 'challenger' });
 
       if (bothSet) {
-        io.to(gameRoom(gameId)).emit('server:game:start', { startedAt: game.startedAt });
+        gameTurnTimes.set(gameId, game.turnTimeMs || DEFAULT_TURN_TIME_MS);
+        io.to(gameRoom(gameId)).emit('server:game:start', { startedAt: game.startedAt, turnTimeMs: game.turnTimeMs });
         // Host goes first
         startTurnTimer(io, gameId, 'host');
       }
