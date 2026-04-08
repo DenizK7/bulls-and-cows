@@ -159,122 +159,103 @@ export default function LobbyPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center px-4 py-6 sm:py-8">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[10%] right-[10%] w-80 h-80 bg-accent/3 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[15%] left-[5%] w-72 h-72 bg-bull/4 rounded-full blur-[100px]" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-2xl flex flex-col gap-5">
-        {/* Header */}
+    <div className="flex-1 flex flex-col items-center px-3 sm:px-4 py-4 sm:py-6">
+      <div className="relative z-10 w-full max-w-2xl flex flex-col gap-4">
+        {/* Compact header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">
-              <span className="text-bull">Bulls</span>
-              <span className="text-text-dim mx-1">&</span>
-              <span className="text-cow">Cows</span>
-            </h1>
-            <Link href="/how-to-play" className="w-6 h-6 rounded-full border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer" title="How to play">?</Link>
-            <div className="flex items-center gap-1.5">
-              <div className={`w-2 h-2 rounded-full ${connected ? "bg-online animate-pulse" : "bg-danger"}`} />
-              <span className="text-text-dim text-xs">{connected ? "Online" : "..."}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {user?.image && (
-              <Image src={user.image} alt="" width={32} height={32} className="rounded-full" />
-            )}
-            <div className="text-right">
-              <div className="text-sm font-medium">{user?.name}</div>
-              <div className="text-xs text-text-dim font-mono">#{userTag}</div>
-            </div>
-            <button
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="text-xs text-text-dim hover:text-text-muted transition-colors cursor-pointer"
-            >
-              Sign out
-            </button>
+          <h1 className="text-xl font-bold">
+            <span className="text-bull">B</span><span className="text-text-dim">&</span><span className="text-cow">C</span>
+          </h1>
+          <div className="flex items-center gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-online" : "bg-danger"}`} />
+            {user?.image && <Image src={user.image} alt="" width={24} height={24} className="rounded-full" />}
+            <span className="text-xs text-text-muted">{user?.name}<span className="text-text-dim font-mono ml-1">#{userTag}</span></span>
+            <button onClick={() => signOut({ callbackUrl: "/" })}
+              className="text-[10px] text-text-dim hover:text-text-muted cursor-pointer ml-1">out</button>
           </div>
         </div>
 
-        {/* Tab switcher */}
-        <div className="flex bg-bg-card rounded-xl p-1 border border-border">
+        {/* Tabs */}
+        <div className="flex bg-bg-card rounded-lg p-0.5 border border-border text-sm">
           {[
-            { key: "play" as const, label: "Play", icon: "🎮" },
-            { key: "friends" as const, label: `Friends${friends.length ? ` (${friends.length})` : ""}`, icon: "👥" },
+            { key: "play" as const, label: "Play" },
+            { key: "friends" as const, label: `Friends${friends.length ? ` (${friends.length})` : ""}` },
           ].map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                tab === t.key ? "bg-bg-elevated text-text shadow-sm" : "text-text-muted hover:text-text"
-              }`}
-            >
-              {t.icon} {t.label}
-            </button>
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex-1 py-2 rounded-md font-medium transition-all cursor-pointer ${
+                tab === t.key ? "bg-bg-elevated text-text shadow-sm" : "text-text-muted"
+              }`}>{t.label}</button>
           ))}
         </div>
 
         <AnimatePresence mode="wait">
           {tab === "play" ? (
-            <motion.div key="play" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex flex-col gap-5">
+            <motion.div key="play" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex flex-col gap-3">
               {/* AI */}
-              <div className="bg-bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold">Play vs AI</h2>
-                    <p className="text-text-dim text-xs">Practice and improve your skills</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2.5">
+              <div className="bg-bg-card border border-border rounded-xl p-4">
+                <h2 className="text-sm font-semibold mb-2">Play vs AI</h2>
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: "Easy", desc: "Random", difficulty: "easy", color: "text-success border-success/20 bg-success/5" },
-                    { label: "Medium", desc: "Smart", difficulty: "medium", color: "text-warning border-warning/20 bg-warning/5" },
-                    { label: "Hard", desc: "Genius", difficulty: "hard", color: "text-danger border-danger/20 bg-danger/5" },
+                    { label: "Easy", difficulty: "easy", color: "text-success border-success/20 bg-success/5" },
+                    { label: "Medium", difficulty: "medium", color: "text-warning border-warning/20 bg-warning/5" },
+                    { label: "Hard", difficulty: "hard", color: "text-danger border-danger/20 bg-danger/5" },
                   ].map((m) => (
-                    <button
-                      key={m.difficulty}
-                      onClick={() => handlePlayAI(m.difficulty)}
-                      disabled={!connected}
-                      className={`border rounded-xl p-3 text-center hover:brightness-125 transition-all cursor-pointer active:scale-[0.97] disabled:opacity-40 ${m.color}`}
-                    >
-                      <div className="font-bold text-lg">{m.label}</div>
-                      <div className="text-[10px] opacity-70">{m.desc}</div>
+                    <button key={m.difficulty} onClick={() => handlePlayAI(m.difficulty)} disabled={!connected}
+                      className={`border rounded-lg py-2.5 text-center font-bold text-sm hover:brightness-125 transition-all cursor-pointer active:scale-[0.97] disabled:opacity-40 ${m.color}`}>
+                      {m.label}
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* PvP */}
-              <div className="bg-bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-9 h-9 rounded-lg bg-bull/10 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-bull" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold">Play Online</h2>
-                    <p className="text-text-dim text-xs">Ranked match against a random opponent</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleFindMatch}
-                  disabled={!connected}
-                  className={`w-full py-3.5 rounded-xl font-semibold transition-all cursor-pointer active:scale-[0.98] disabled:opacity-40 ${
-                    matchmaking ? "bg-danger/15 border-2 border-danger text-danger" : "bg-accent text-bg hover:brightness-110"
-                  }`}
-                >
+              <div className="bg-bg-card border border-border rounded-xl p-4">
+                <h2 className="text-sm font-semibold mb-2">Play Online</h2>
+                <button onClick={handleFindMatch} disabled={!connected}
+                  className={`w-full py-3 rounded-lg font-semibold text-sm transition-all cursor-pointer active:scale-[0.98] disabled:opacity-40 ${
+                    matchmaking ? "bg-danger/15 border border-danger text-danger" : "bg-accent text-bg hover:brightness-110"
+                  }`}>
                   {matchmaking ? (
                     <span className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-danger border-t-transparent rounded-full animate-spin" />
-                      Searching... Cancel
+                      <div className="w-3.5 h-3.5 border-2 border-danger border-t-transparent rounded-full animate-spin" />
+                      Cancel
                     </span>
                   ) : "Find Match"}
                 </button>
               </div>
+
+              {/* Play with Friends */}
+              <div className="bg-bg-card border border-border rounded-xl p-4">
+                <h2 className="text-sm font-semibold mb-2">Play with Friends</h2>
+                {friends.length === 0 ? (
+                  <p className="text-text-dim text-xs">Add friends in the Friends tab to invite them!</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {friends.map((f) => (
+                      <button key={f._id} onClick={() => setInviteModal({ friendId: f._id, friendName: f.displayName })}
+                        className="flex items-center gap-1.5 bg-bg-elevated border border-border rounded-lg px-3 py-1.5 text-xs hover:border-accent/30 cursor-pointer transition-all">
+                        <div className="relative">
+                          {f.avatarUrl ? <img src={f.avatarUrl} alt="" className="w-5 h-5 rounded-full" /> :
+                            <div className="w-5 h-5 bg-accent/20 rounded-full flex items-center justify-center text-[8px] font-bold text-accent">{f.displayName[0]}</div>}
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-bg-elevated ${onlineUsers.has(f._id) ? "bg-online" : "bg-text-dim"}`} />
+                        </div>
+                        <span className="font-medium">{f.displayName}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Tutorial */}
+              <Link href="/how-to-play">
+                <div className="bg-bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:border-border-light cursor-pointer transition-all">
+                  <div>
+                    <h2 className="text-sm font-semibold">How to Play</h2>
+                    <p className="text-text-dim text-xs">Learn the rules with a practice game</p>
+                  </div>
+                  <span className="text-text-dim text-lg">&rarr;</span>
+                </div>
+              </Link>
             </motion.div>
           ) : (
             <motion.div key="friends" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-col gap-4">
