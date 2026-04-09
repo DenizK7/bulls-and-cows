@@ -47,6 +47,7 @@ function Notepad({
 }) {
   const [slots, setSlots] = useState(["", "", "", ""]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [manualEliminated, setManualEliminated] = useState<Set<string>>(new Set());
 
   const digitStatus = (() => {
     const status: Record<string, "unknown" | "exists" | "eliminated"> = {};
@@ -63,20 +64,32 @@ function Notepad({
         }
       }
     }
+    // Manual eliminations override
+    for (const d of manualEliminated) {
+      if (status[d] !== "eliminated") status[d] = "eliminated";
+    }
     return status;
   })();
 
   const placeDigit = (digit: string) => {
-    const n = [...slots];
     if (selectedSlot !== null) {
       // Place in selected slot
+      const n = [...slots];
       n[selectedSlot] = n[selectedSlot] === digit ? "" : digit;
       setSlots(n);
       setSelectedSlot(null);
+      // Remove from eliminated if placing
+      if (n[selectedSlot] === digit) {
+        setManualEliminated((p) => { const s = new Set(p); s.delete(digit); return s; });
+      }
     } else {
-      // Place in first empty slot
-      const emptyIdx = n.findIndex((s) => s === "");
-      if (emptyIdx !== -1) { n[emptyIdx] = digit; setSlots(n); }
+      // No slot selected: toggle manual elimination
+      if (slots.includes(digit)) return; // don't eliminate if in a slot
+      setManualEliminated((p) => {
+        const s = new Set(p);
+        if (s.has(digit)) s.delete(digit); else s.add(digit);
+        return s;
+      });
     }
   };
 
@@ -115,7 +128,7 @@ function Notepad({
           </button>
         ))}
         <button
-          onClick={() => { setSlots(["", "", "", ""]); setSelectedSlot(null); }}
+          onClick={() => { setSlots(["", "", "", ""]); setSelectedSlot(null); setManualEliminated(new Set()); }}
           className="h-11 px-2 rounded-lg border border-border text-[10px] text-text-dim hover:text-danger hover:border-danger/30 transition-all cursor-pointer flex items-center justify-center"
         >
           {t("game.clear")}
