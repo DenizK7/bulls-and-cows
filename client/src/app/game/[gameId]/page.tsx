@@ -48,6 +48,7 @@ function Notepad({
   const [slots, setSlots] = useState(["", "", "", ""]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [manualEliminated, setManualEliminated] = useState<Set<string>>(new Set());
+  const [eliminateMode, setEliminateMode] = useState(false);
 
   const digitStatus = (() => {
     const status: Record<string, "unknown" | "exists" | "eliminated"> = {};
@@ -64,7 +65,6 @@ function Notepad({
         }
       }
     }
-    // Manual eliminations override
     for (const d of manualEliminated) {
       if (status[d] !== "eliminated") status[d] = "eliminated";
     }
@@ -72,25 +72,26 @@ function Notepad({
   })();
 
   const placeDigit = (digit: string) => {
-    if (selectedSlot !== null) {
-      // Place in selected slot
-      const n = [...slots];
-      n[selectedSlot] = n[selectedSlot] === digit ? "" : digit;
-      setSlots(n);
-      setSelectedSlot(null);
-      // Remove from eliminated if placing
-      if (n[selectedSlot] === digit) {
-        setManualEliminated((p) => { const s = new Set(p); s.delete(digit); return s; });
-      }
-    } else {
-      // No slot selected: toggle manual elimination
-      if (slots.includes(digit)) return; // don't eliminate if in a slot
+    if (eliminateMode) {
+      // Toggle elimination
+      if (slots.includes(digit)) return;
       setManualEliminated((p) => {
         const s = new Set(p);
         if (s.has(digit)) s.delete(digit); else s.add(digit);
         return s;
       });
+      return;
     }
+    const n = [...slots];
+    if (selectedSlot !== null) {
+      n[selectedSlot] = n[selectedSlot] === digit ? "" : digit;
+      setSlots(n);
+      setSelectedSlot(null);
+    } else {
+      const emptyIdx = n.findIndex((s) => s === "");
+      if (emptyIdx !== -1) { n[emptyIdx] = digit; setSlots(n); }
+    }
+    setManualEliminated((p) => { const s = new Set(p); s.delete(digit); return s; });
   };
 
   const tapSlot = (i: number) => {
@@ -128,7 +129,16 @@ function Notepad({
           </button>
         ))}
         <button
-          onClick={() => { setSlots(["", "", "", ""]); setSelectedSlot(null); setManualEliminated(new Set()); }}
+          onClick={() => setEliminateMode(!eliminateMode)}
+          className={`h-11 px-2 rounded-lg border text-[10px] transition-all cursor-pointer flex items-center justify-center ${
+            eliminateMode ? "border-danger/40 bg-danger/10 text-danger" : "border-border text-text-dim hover:text-danger hover:border-danger/30"
+          }`}
+          title="Toggle eliminate mode"
+        >
+          ✕
+        </button>
+        <button
+          onClick={() => { setSlots(["", "", "", ""]); setSelectedSlot(null); setManualEliminated(new Set()); setEliminateMode(false); }}
           className="h-11 px-2 rounded-lg border border-border text-[10px] text-text-dim hover:text-danger hover:border-danger/30 transition-all cursor-pointer flex items-center justify-center"
         >
           {t("game.clear")}
