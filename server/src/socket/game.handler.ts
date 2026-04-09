@@ -137,11 +137,13 @@ async function endGame(io: Server, game: IGame, winnerId: string | null, reason:
 
 export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void {
   // Start AI game
-  socket.on('client:game:start-ai', async ({ difficulty }: { difficulty: AIDifficulty }) => {
+  socket.on('client:game:start-ai', async ({ difficulty, turnTimeMs }: { difficulty: AIDifficulty; turnTimeMs?: number }) => {
     try {
+      const validTurnTime = [30000, 60000, 120000].includes(turnTimeMs || 0) ? turnTimeMs : DEFAULT_TURN_TIME_MS;
       const aiSecret = initAIGame('pending', difficulty);
       const game = await Game.create({
         type: 'ai', matchType: 'ai', status: 'waiting_secrets',
+        turnTimeMs: validTurnTime,
         players: {
           host: { userId: socket.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
           challenger: { userId: 'AI', secret: aiSecret, secretSet: true, guesses: [], guessedThisRound: false },

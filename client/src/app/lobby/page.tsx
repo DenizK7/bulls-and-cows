@@ -168,7 +168,8 @@ export default function LobbyPage() {
   const user = session?.user;
   const userTag = (session as { tag?: string })?.tag || "0000";
 
-  const handlePlayAI = (difficulty: string) => socket?.emit("client:game:start-ai", { difficulty });
+  const [aiTurnTime, setAiTurnTime] = useState(60000);
+  const handlePlayAI = (difficulty: string) => socket?.emit("client:game:start-ai", { difficulty, turnTimeMs: aiTurnTime });
 
   const handleFindMatch = () => {
     if (matchmaking) { socket?.emit("client:matchmaking:leave"); setMatchmaking(false); }
@@ -332,7 +333,23 @@ export default function LobbyPage() {
             <motion.div key="play" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex flex-col gap-3">
               {/* AI */}
               <div className="bg-bg-card border border-border rounded-xl p-4">
-                <h2 className="text-sm font-semibold mb-2">{t("lobby.playAI")}</h2>
+                <h2 className="text-sm font-semibold mb-3">{t("lobby.playAI")}</h2>
+                {/* Turn time selector */}
+                <div className="flex gap-1.5 mb-3">
+                  {[
+                    { ms: 30000, label: "30s", desc: t("invite.fast") },
+                    { ms: 60000, label: "60s", desc: t("invite.normal") },
+                    { ms: 120000, label: "2m", desc: t("invite.chill") },
+                  ].map((opt) => (
+                    <button key={opt.ms} onClick={() => setAiTurnTime(opt.ms)}
+                      className={`flex-1 py-1.5 rounded-lg border text-center cursor-pointer transition-all ${
+                        aiTurnTime === opt.ms ? "border-accent/40 bg-accent/10 text-accent" : "border-border text-text-dim hover:border-border-light"
+                      }`}>
+                      <div className="text-xs font-bold">{opt.label}</div>
+                      <div className="text-[9px] opacity-70">{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: t("difficulty.easy"), difficulty: "easy", color: "text-success border-success/20 bg-success/5" },
