@@ -1,3 +1,5 @@
+import { useState, useEffect, useCallback } from "react";
+
 const translations = {
   en: {
     // Landing
@@ -292,9 +294,6 @@ export function detectLang(): Lang {
 export function t(key: TranslationKey): string {
   return translations[currentLang][key] || translations.en[key] || key;
 }
-
-// React hook
-import { useState, useEffect, useCallback } from "react";
 
 export function useT() {
   const [lang, setLangState] = useState<Lang>("en");
