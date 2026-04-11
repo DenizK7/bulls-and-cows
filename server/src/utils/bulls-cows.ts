@@ -34,14 +34,14 @@ export function evaluate(guess: string, secret: string): EvaluationResult {
   return { bulls, cows };
 }
 
-export function generateAllCodes(): string[] {
+export function generateAllCodes(maxDigit: number = 9): string[] {
   const codes: string[] = [];
-  for (let a = 0; a <= 9; a++)
-    for (let b = 0; b <= 9; b++) {
+  for (let a = 0; a <= maxDigit; a++)
+    for (let b = 0; b <= maxDigit; b++) {
       if (b === a) continue;
-      for (let c = 0; c <= 9; c++) {
+      for (let c = 0; c <= maxDigit; c++) {
         if (c === a || c === b) continue;
-        for (let d = 0; d <= 9; d++) {
+        for (let d = 0; d <= maxDigit; d++) {
           if (d === a || d === b || d === c) continue;
           codes.push(`${a}${b}${c}${d}`);
         }
@@ -50,8 +50,8 @@ export function generateAllCodes(): string[] {
   return codes;
 }
 
-export function randomSecret(): string {
-  const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+export function randomSecret(maxDigit: number = 9): string {
+  const digits = Array.from({ length: maxDigit + 1 }, (_, i) => i);
   for (let i = digits.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [digits[i], digits[j]] = [digits[j], digits[i]];

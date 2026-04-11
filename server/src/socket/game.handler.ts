@@ -11,6 +11,7 @@ const DEFAULT_TURN_TIME_MS = 60_000;
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const gameTurnTimes = new Map<string, number>(); // cache turn time per game
 const gameCurrentTurns = new Map<string, 'host' | 'challenger'>(); // track actual current turn
+const processingGuess = new Set<string>(); // gameIds currently processing a guess (prevent duplicate submission)
 
 function gameRoom(id: string) { return `game:${id}`; }
 
@@ -137,13 +138,15 @@ async function endGame(io: Server, game: IGame, winnerId: string | null, reason:
 
 export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void {
   // Start AI game
-  socket.on('client:game:start-ai', async ({ difficulty, turnTimeMs }: { difficulty: AIDifficulty; turnTimeMs?: number }) => {
+  socket.on('client:game:start-ai', async ({ difficulty, turnTimeMs, colorCount }: { difficulty: AIDifficulty; turnTimeMs?: number; colorCount?: number | null }) => {
     try {
       const validTurnTime = [30000, 60000, 120000].includes(turnTimeMs || 0) ? turnTimeMs : DEFAULT_TURN_TIME_MS;
-      const aiSecret = initAIGame('pending', difficulty);
+      const validColorCount = (typeof colorCount === 'number' && [5, 6, 7, 8].includes(colorCount)) ? colorCount : null;
+      const aiSecret = initAIGame('pending', difficulty, validColorCount);
       const game = await Game.create({
         type: 'ai', matchType: 'ai', status: 'waiting_secrets',
         turnTimeMs: validTurnTime,
+        colorCount: validColorCount,
         players: {
           host: { userId: socket.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
           challenger: { userId: 'AI', secret: aiSecret, secretSet: true, guesses: [], guessedThisRound: false },
@@ -151,7 +154,7 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
       });
       const gameId = game._id!.toString();
       cleanupAIGame('pending');
-      initAIGame(gameId, difficulty);
+      initAIGame(gameId, difficulty, validColorCount);
       game.players.challenger.secret = getAISecret(gameId)!;
       await game.save();
 
@@ -194,11 +197,11 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
   // Set secret (atomic to prevent race condition when both players submit simultaneously)
   socket.on('client:game:set-secret', async ({ gameId, secret }: { gameId: string; secret: string }) => {
     try {
-      if (!isValidSecret(secret)) { socket.emit('server:error', { code: 'INVALID_SECRET', message: 'Must be 4 unique digits' }); return; }
-
-      // Determine role first with a quick read
+      // Determine role and color range first with a quick read
       const check = await Game.findById(gameId).lean();
       if (!check || check.status !== 'waiting_secrets') return;
+      const maxDigit = check.colorCount != null ? check.colorCount - 1 : 9;
+      if (!isValidSecret(secret, maxDigit)) { socket.emit('server:error', { code: 'INVALID_SECRET', message: 'Invalid secret' }); return; }
       const isHost = check.players.host.userId.toString() === socket.userId;
       const alreadySet = isHost ? check.players.host.secretSet : check.players.challenger.secretSet;
       if (alreadySet) return;
@@ -234,10 +237,15 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
 
   // Submit guess - TURN BASED
   socket.on('client:game:guess', async ({ gameId, guess }: { gameId: string; guess: string }) => {
+    // Per-game lock: drop duplicate guesses arriving while a previous one is still processing
+    // (especially important for AI games where the 5-10s "thinking" delay leaves a window open)
+    if (processingGuess.has(gameId)) return;
+    processingGuess.add(gameId);
     try {
-      if (!guess || guess.length !== 4 || !/^\d{4}$/.test(guess)) { socket.emit('server:error', { code: 'INVALID_GUESS', message: 'Must be 4 digits' }); return; }
       const game = await Game.findById(gameId);
       if (!game || game.status !== 'in_progress') return;
+      const maxDigit = game.colorCount != null ? game.colorCount - 1 : 9;
+      if (!isValidGuess(guess, maxDigit)) { socket.emit('server:error', { code: 'INVALID_GUESS', message: 'Invalid guess' }); return; }
 
       const isHost = game.players.host.userId.toString() === socket.userId;
       const currentTurn = gameCurrentTurns.get(gameId) || 'host';
@@ -307,6 +315,8 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
     } catch (err) {
       console.error('Guess error:', err);
       socket.emit('server:error', { code: 'GUESS_FAILED', message: 'Failed to process guess' });
+    } finally {
+      processingGuess.delete(gameId);
     }
   });
 
@@ -339,6 +349,7 @@ function buildGameState(game: IGame, myUserId: string, myName: string, myAvatar:
     type: game.type,
     matchType: game.matchType,
     status: game.status,
+    colorCount: game.colorCount ?? null,
     host: {
       userId: game.players.host.userId.toString(),
       displayName: isHost ? myName : oppName,

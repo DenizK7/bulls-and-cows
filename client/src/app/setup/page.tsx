@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { BrandTitle } from "@/components/BrandTitle";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -62,11 +63,9 @@ export default function SetupPage() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="max-w-sm w-full">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold mb-2">
-            <span className="text-bull">Bulls</span>
-            <span className="text-text-dim mx-1">&</span>
-            <span className="text-cow">Cows</span>
-          </h1>
+          <div className="mb-3">
+            <BrandTitle size="md" />
+          </div>
           <p className="text-text-muted text-sm">Choose your username and tag</p>
         </div>
 

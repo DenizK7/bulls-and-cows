@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Press_Start_2P, VT323 } from "next/font/google";
 import { SessionProvider } from "@/lib/session-provider";
 import { MusicProvider } from "@/components/MusicPlayer";
 import "./globals.css";
@@ -14,8 +14,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const pixelFont = Press_Start_2P({
+  variable: "--font-press-start",
+  subsets: ["latin"],
+  weight: "400",
+});
+
+const pixelMono = VT323({
+  variable: "--font-vt323",
+  subsets: ["latin"],
+  weight: "400",
+});
+
 export const metadata: Metadata = {
-  title: "Bulls & Cows",
+  title: "DigitDuel",
   description: "Challenge your friends in the classic number guessing game",
   icons: { icon: "/favicon.svg" },
 };
@@ -29,7 +41,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${pixelFont.variable} ${pixelMono.variable} h-full antialiased`}
     >
       <head>
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3804528479462272" crossOrigin="anonymous" />

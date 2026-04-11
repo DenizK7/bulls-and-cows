@@ -12,21 +12,22 @@ interface AIState {
 
 const activeGames = new Map<string, AIState>();
 
-function createSolver(difficulty: AIDifficulty): Solver {
+function createSolver(difficulty: AIDifficulty, maxDigit: number = 9): Solver {
   switch (difficulty) {
     case 'hard':
-      return new KnuthSolver();
+      return new KnuthSolver(maxDigit);
     case 'medium':
-      return new SimpleSolver();
+      return new SimpleSolver(maxDigit);
     case 'easy':
-      return new RandomGuesser();
+      return new RandomGuesser(maxDigit);
   }
 }
 
-export function initAIGame(gameId: string, difficulty: AIDifficulty): string {
-  const secret = randomSecret();
+export function initAIGame(gameId: string, difficulty: AIDifficulty, colorCount: number | null = null): string {
+  const maxDigit = colorCount != null ? colorCount - 1 : 9;
+  const secret = randomSecret(maxDigit);
   activeGames.set(gameId, {
-    solver: createSolver(difficulty),
+    solver: createSolver(difficulty, maxDigit),
     secret,
   });
   return secret;

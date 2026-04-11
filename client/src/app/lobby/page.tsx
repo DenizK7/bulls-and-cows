@@ -8,6 +8,8 @@ import Link from "next/link";
 import { useSocket } from "@/hooks/useSocket";
 import { useMusicPlayer } from "@/components/MusicPlayer";
 import { useT } from "@/lib/i18n";
+import { GAME_COLORS } from "@/lib/colors";
+import { BrandTitle } from "@/components/BrandTitle";
 import Image from "next/image";
 
 interface Friend {
@@ -42,13 +44,14 @@ export default function LobbyPage() {
   // Invite state
   const [inviteModal, setInviteModal] = useState<{ friendId: string; friendName: string } | null>(null);
   const [inviteTurnTime, setInviteTurnTime] = useState(60000);
-  const [pendingInvite, setPendingInvite] = useState<{ inviteId: string; from: { displayName: string }; turnTimeMs: number } | null>(null);
+  const [pendingInvite, setPendingInvite] = useState<{ inviteId: string; from: { displayName: string }; turnTimeMs: number; colorCount: number | null } | null>(null);
   const [waitingInvite, setWaitingInvite] = useState<{ friendName: string; timeout: ReturnType<typeof setTimeout> } | null>(null);
   const [readyState, setReadyState] = useState<{ inviteId: string; readyCount: number; amReady: boolean; countdown: number | null } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const music = useMusicPlayer();
   const { t, lang, setLang: changeLang } = useT();
   const [aiTurnTime, setAiTurnTime] = useState(60000);
+  const [colorCount, setColorCount] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [nameMsg, setNameMsg] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -81,6 +84,22 @@ export default function LobbyPage() {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
+  // Hydrate color mode preference from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("colorCount");
+    if (saved === null) return;
+    if (saved === "null") setColorCount(null);
+    else {
+      const n = parseInt(saved, 10);
+      if ([5, 6, 7, 8].includes(n)) setColorCount(n);
+    }
+  }, []);
+
+  // Persist on change
+  useEffect(() => {
+    localStorage.setItem("colorCount", colorCount == null ? "null" : String(colorCount));
+  }, [colorCount]);
+
   useEffect(() => { fetchFriends(); }, [fetchFriends]);
 
   // Load profile from backend + check setup
@@ -93,7 +112,8 @@ export default function LobbyPage() {
         setProfile({ displayName: data.displayName, tag: data.tag });
         setEditName(data.displayName);
         if (!data.setupComplete) setShowSetup(true);
-      });
+      })
+      .catch(() => { /* server unreachable / transient — ignore */ });
   }, [token]);
 
   // Socket events
@@ -104,8 +124,8 @@ export default function LobbyPage() {
     const handleFriendOnline = (data: { userId: string }) => setOnlineUsers((p) => new Set(p).add(data.userId));
     const handleFriendOffline = (data: { userId: string }) => setOnlineUsers((p) => { const n = new Set(p); n.delete(data.userId); return n; });
 
-    const handleInviteReceived = (data: { inviteId: string; from: { displayName: string }; turnTimeMs: number }) => {
-      setPendingInvite(data);
+    const handleInviteReceived = (data: { inviteId: string; from: { displayName: string }; turnTimeMs: number; colorCount?: number | null }) => {
+      setPendingInvite({ ...data, colorCount: data.colorCount ?? null });
       // Auto-decline after 15s
       setTimeout(() => {
         setPendingInvite((current) => {
@@ -169,11 +189,11 @@ export default function LobbyPage() {
   const user = session?.user;
   const userTag = (session as { tag?: string })?.tag || "0000";
 
-  const handlePlayAI = (difficulty: string) => socket?.emit("client:game:start-ai", { difficulty, turnTimeMs: aiTurnTime });
+  const handlePlayAI = (difficulty: string) => socket?.emit("client:game:start-ai", { difficulty, turnTimeMs: aiTurnTime, colorCount });
 
   const handleFindMatch = () => {
     if (matchmaking) { socket?.emit("client:matchmaking:leave"); setMatchmaking(false); }
-    else { socket?.emit("client:matchmaking:join"); setMatchmaking(true); }
+    else { socket?.emit("client:matchmaking:join", { colorCount }); setMatchmaking(true); }
   };
 
   const handleAddFriend = async () => {
@@ -208,9 +228,7 @@ export default function LobbyPage() {
       <div className="relative z-10 w-full max-w-2xl flex flex-col gap-4">
         {/* Compact header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">
-            <span className="text-bull">B</span><span className="text-text-dim">&</span><span className="text-cow">C</span>
-          </h1>
+          <BrandTitle size="sm" />
           <div className="flex items-center gap-2">
             <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-online" : "bg-danger"}`} />
             {user?.image && <Image src={user.image} alt="" width={24} height={24} className="rounded-full" />}
@@ -331,6 +349,47 @@ export default function LobbyPage() {
         <AnimatePresence mode="wait">
           {tab === "play" ? (
             <motion.div key="play" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex flex-col gap-3">
+              {/* Game Mode Selector — applies to all game types below */}
+              <div className="bg-bg-card border border-border rounded-xl p-4">
+                <h2 className="text-sm font-semibold mb-3">Oyun Modu</h2>
+                <div className="flex gap-2 mb-3">
+                  <button onClick={() => setColorCount(null)}
+                    className={`flex-1 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${
+                      colorCount == null ? "border-accent bg-accent/10 text-accent" : "border-border text-text-muted hover:border-border-light"
+                    }`}>
+                    <div className="text-sm font-bold">Sayılar</div>
+                    <div className="text-[10px] opacity-70">0-9 rakamlar</div>
+                  </button>
+                  <button onClick={() => setColorCount(6)}
+                    className={`flex-1 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${
+                      colorCount != null ? "border-accent bg-accent/10 text-accent" : "border-border text-text-muted hover:border-border-light"
+                    }`}>
+                    <div className="text-sm font-bold">Renkler</div>
+                    <div className="text-[10px] opacity-70">renkli daireler</div>
+                  </button>
+                </div>
+                {colorCount != null && (
+                  <>
+                    <div className="text-[10px] text-text-dim mb-1.5 text-center">Renk sayısı</div>
+                    <div className="flex gap-1.5 mb-2">
+                      {[5, 6, 7, 8].map((n) => (
+                        <button key={n} onClick={() => setColorCount(n)}
+                          className={`flex-1 py-1.5 rounded-lg border text-sm font-bold cursor-pointer transition-all ${
+                            colorCount === n ? "border-accent/40 bg-accent/10 text-accent" : "border-border text-text-dim hover:border-border-light"
+                          }`}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-1 justify-center mt-2">
+                      {GAME_COLORS.slice(0, colorCount).map((c, i) => (
+                        <span key={i} className="w-5 h-5 rounded-full" style={{ background: c, boxShadow: `0 0 6px ${c}50` }} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
               {/* AI */}
               <div className="bg-bg-card border border-border rounded-xl p-4">
                 <h2 className="text-sm font-semibold mb-3">{t("lobby.playAI")}</h2>
@@ -671,7 +730,7 @@ export default function LobbyPage() {
                   {t("invite.cancel")}
                 </button>
                 <button onClick={() => {
-                  socket?.emit("client:invite:send", { toUserId: inviteModal.friendId, turnTime: inviteTurnTime });
+                  socket?.emit("client:invite:send", { toUserId: inviteModal.friendId, turnTime: inviteTurnTime, colorCount });
                   const friendName = inviteModal.friendName;
                   setInviteModal(null);
                   const tm = setTimeout(() => setWaitingInvite(null), 15000);
@@ -716,7 +775,21 @@ export default function LobbyPage() {
               <div className="text-3xl mb-2">⚔️</div>
               <h3 className="text-lg font-bold mb-1">{t("invite.title")}</h3>
               <p className="text-text-muted text-sm mb-1"><strong className="text-text">{pendingInvite.from.displayName}</strong> {t("invite.wantsToPlay")}</p>
-              <p className="text-text-dim text-xs mb-5">{t("invite.turnTime")}: {pendingInvite.turnTimeMs / 1000}s</p>
+              <p className="text-text-dim text-xs mb-1">{t("invite.turnTime")}: {pendingInvite.turnTimeMs / 1000}s</p>
+              <div className="flex items-center justify-center gap-1.5 mb-5">
+                {pendingInvite.colorCount != null ? (
+                  <>
+                    <span className="text-text-dim text-xs">{pendingInvite.colorCount} renk</span>
+                    <div className="flex gap-0.5">
+                      {GAME_COLORS.slice(0, pendingInvite.colorCount).map((c, i) => (
+                        <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-text-dim text-xs">Sayılar 0-9</span>
+                )}
+              </div>
               <div className="flex gap-2">
                 <button onClick={() => { socket?.emit("client:invite:decline", { inviteId: pendingInvite.inviteId }); setPendingInvite(null); }}
                   className="flex-1 py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl cursor-pointer hover:bg-bg-hover">

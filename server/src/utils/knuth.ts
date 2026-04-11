@@ -1,6 +1,12 @@
 import { evaluate, generateAllCodes } from './bulls-cows.js';
 
-const ALL_CODES = generateAllCodes();
+const codesCache = new Map<number, string[]>();
+function getCodes(maxDigit: number): string[] {
+  if (!codesCache.has(maxDigit)) codesCache.set(maxDigit, generateAllCodes(maxDigit));
+  return codesCache.get(maxDigit)!;
+}
+
+const ALL_CODES = getCodes(9);
 
 const OPTIMAL_FIRST_GUESS = '1023';
 
@@ -53,16 +59,18 @@ function minimax(possibilities: string[], allCodes: string[]): string {
 
 export class KnuthSolver {
   private possibilities: string[];
+  private allCodes: string[];
 
-  constructor() {
-    this.possibilities = [...ALL_CODES];
+  constructor(maxDigit: number = 9) {
+    this.allCodes = getCodes(maxDigit);
+    this.possibilities = [...this.allCodes];
   }
 
   nextGuess(): string {
-    if (this.possibilities.length === ALL_CODES.length) {
+    if (this.possibilities.length === this.allCodes.length) {
       return OPTIMAL_FIRST_GUESS;
     }
-    return minimax(this.possibilities, ALL_CODES);
+    return minimax(this.possibilities, this.allCodes);
   }
 
   processResult(guess: string, bulls: number, cows: number): void {
@@ -82,8 +90,8 @@ export class KnuthSolver {
 export class SimpleSolver {
   private possibilities: string[];
 
-  constructor() {
-    this.possibilities = [...ALL_CODES];
+  constructor(maxDigit: number = 9) {
+    this.possibilities = [...getCodes(maxDigit)];
   }
 
   nextGuess(): string {
@@ -103,8 +111,14 @@ export class SimpleSolver {
 }
 
 export class RandomGuesser {
+  private allCodes: string[];
+
+  constructor(maxDigit: number = 9) {
+    this.allCodes = getCodes(maxDigit);
+  }
+
   nextGuess(): string {
-    return ALL_CODES[Math.floor(Math.random() * ALL_CODES.length)];
+    return this.allCodes[Math.floor(Math.random() * this.allCodes.length)];
   }
 
   processResult(): void {

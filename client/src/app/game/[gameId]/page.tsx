@@ -8,6 +8,28 @@ import { useSocket } from "@/hooks/useSocket";
 import { useMusicPlayer } from "@/components/MusicPlayer";
 import { useGame } from "@/hooks/useGame";
 import { useT, t } from "@/lib/i18n";
+import { digitToColor } from "@/lib/colors";
+import { BrandTitle } from "@/components/BrandTitle";
+
+function DigitPiece({ digit, size = "md", state }: {
+  digit: string;
+  size?: "sm" | "md" | "lg";
+  state?: "bull" | "cow" | "miss" | "neutral";
+}) {
+  const color = digitToColor(digit);
+  const sizeCls = size === "sm" ? "w-5 h-5" : size === "lg" ? "w-10 h-10" : "w-7 h-7";
+  if (!color) {
+    return <span className={`${sizeCls} inline-block rounded-full bg-bg-elevated border border-border`} />;
+  }
+  const ring = state === "bull" ? "ring-2 ring-bull" : state === "cow" ? "ring-2 ring-cow" : "";
+  const opacity = state === "miss" ? "opacity-30" : "";
+  return (
+    <span
+      className={`${sizeCls} inline-block rounded-full ${ring} ${opacity}`}
+      style={{ background: color, boxShadow: `0 0 6px ${color}50` }}
+    />
+  );
+}
 
 function TurnTimer({ deadline, isMyTurn, frozen }: { deadline: number | null; isMyTurn: boolean; frozen?: boolean }) {
   const [remaining, setRemaining] = useState(60);
@@ -26,7 +48,7 @@ function TurnTimer({ deadline, isMyTurn, frozen }: { deadline: number | null; is
 
   return (
     <div className="flex items-center gap-2">
-      <span className={`font-mono text-sm font-bold tabular-nums ${color}`}>
+      <span className={`font-pixel-mono text-sm font-bold tabular-nums ${color}`}>
         {deadline ? `${remaining}s` : "..."}
       </span>
       <div className="w-16 sm:w-24 h-1 bg-bg-elevated rounded-full overflow-hidden">
@@ -42,17 +64,21 @@ function TurnTimer({ deadline, isMyTurn, frozen }: { deadline: number | null; is
 
 function Notepad({
   guesses,
+  colorCount,
 }: {
   guesses: { guess: string; bulls: number; cows: number }[];
+  colorCount?: number | null;
 }) {
   const [slots, setSlots] = useState(["", "", "", ""]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [manualEliminated, setManualEliminated] = useState<Set<string>>(new Set());
   const [eliminateMode, setEliminateMode] = useState(false);
+  const isColorMode = colorCount != null;
+  const digitMax = isColorMode ? colorCount : 10;
 
   const digitStatus = (() => {
     const status: Record<string, "unknown" | "exists" | "eliminated"> = {};
-    for (let d = 0; d <= 9; d++) status[String(d)] = "unknown";
+    for (let d = 0; d < digitMax; d++) status[String(d)] = "unknown";
     for (const g of guesses) {
       if (g.bulls === 0 && g.cows === 0) {
         for (const d of g.guess) status[d] = "eliminated";
@@ -117,7 +143,7 @@ function Notepad({
           <button
             key={i}
             onClick={() => tapSlot(i)}
-            className={`w-10 h-11 rounded-lg border-2 flex items-center justify-center font-mono text-lg font-bold transition-all cursor-pointer ${
+            className={`w-10 h-11 rounded-lg border-2 flex items-center justify-center font-pixel-mono text-lg font-bold transition-all cursor-pointer ${
               selectedSlot === i
                 ? "border-accent bg-accent/10 text-accent animate-pulse"
                 : s
@@ -125,7 +151,7 @@ function Notepad({
                   : "border-border border-dashed text-text-dim hover:border-border-light"
             }`}
           >
-            {s || <span className="text-xs opacity-50">{i + 1}</span>}
+            {s ? (isColorMode ? <DigitPiece digit={s} size="md" /> : s) : <span className="text-xs opacity-50">{i + 1}</span>}
           </button>
         ))}
         <button
@@ -151,9 +177,9 @@ function Notepad({
         </p>
       )}
 
-      {/* 0-9 digit tracker */}
+      {/* digit/color tracker */}
       <div className="flex flex-wrap gap-1 justify-center">
-        {Array.from({ length: 10 }, (_, d) => String(d)).map((d) => {
+        {Array.from({ length: digitMax }, (_, d) => String(d)).map((d) => {
           const s = digitStatus[d];
           const inSlot = slots.includes(d);
           const bg =
@@ -169,9 +195,9 @@ function Notepad({
             <button
               key={d}
               onClick={() => placeDigit(d)}
-              className={`w-8 h-8 rounded-md border text-xs font-bold font-mono cursor-pointer transition-all hover:brightness-125 ${bg}`}
+              className={`w-8 h-8 rounded-md border text-xs font-bold font-pixel-mono cursor-pointer transition-all hover:brightness-125 flex items-center justify-center ${bg}`}
             >
-              {d}
+              {isColorMode ? <DigitPiece digit={d} size="sm" /> : d}
             </button>
           );
         })}
@@ -189,16 +215,19 @@ function DigitInput({
   onSubmit,
   disabled,
   confirmLabel = "OK",
+  colorCount,
 }: {
   onSubmit: (value: string) => void;
   disabled: boolean;
   confirmLabel?: string;
+  colorCount?: number | null;
 }) {
   const [digits, setDigits] = useState(["", "", "", ""]);
   const filledCount = digits.filter((d) => d !== "").length;
   const hasUniqueDigits = new Set(digits.filter((d) => d !== "")).size === filledCount;
   const isValid = filledCount === 4 && hasUniqueDigits;
   const usedDigits = new Set(digits.filter((d) => d !== ""));
+  const isColorMode = colorCount != null;
 
   const addDigit = (d: string) => {
     setDigits((prev) => {
@@ -234,58 +263,91 @@ function DigitInput({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (disabled) return;
-      if (/^\d$/.test(e.key)) { addDigit(e.key); } // addDigit already blocks duplicates
+      const max = colorCount != null ? colorCount - 1 : 9;
+      if (/^\d$/.test(e.key) && parseInt(e.key, 10) <= max) { addDigit(e.key); } // addDigit already blocks duplicates
       else if (e.key === "Backspace") { e.preventDefault(); removeDigit(); }
       else if (e.key === "Enter") {
-        setDigits((prev) => {
-          if (prev.every((d) => d !== "")) {
-            onSubmit(prev.join(""));
-            return ["", "", "", ""];
-          }
-          return prev;
-        });
+        // Read latest digits via ref — never call onSubmit inside a state updater (StrictMode double-fires)
+        const current = digitsRef.current;
+        if (current.every((d) => d !== "")) {
+          onSubmit(current.join(""));
+          setDigits(["", "", "", ""]);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [disabled, onSubmit]);
+  }, [disabled, onSubmit, colorCount]);
+
+  // Available digit pool: in color mode, only 0..(colorCount-1)
+  const colorDigits = isColorMode ? Array.from({ length: colorCount! }, (_, i) => String(i)) : null;
+
+  // Keep a ref for the keyboard handler to read latest digits without stale closure or strict-mode double-fire
+  const digitsRef = useRef(digits);
+  digitsRef.current = digits;
 
   return (
     <div className="flex flex-col items-center gap-2.5">
-      {/* Digit display */}
+      {/* Display */}
       <div className="flex gap-2">
         {digits.map((d, i) => (
-          <div key={i} className={`w-11 h-12 sm:w-12 sm:h-13 bg-bg-elevated border-2 rounded-lg flex items-center justify-center font-mono text-xl font-bold transition-colors ${
+          <div key={i} className={`w-11 h-12 sm:w-12 sm:h-13 bg-bg-elevated border-2 rounded-lg flex items-center justify-center font-pixel-mono text-xl font-bold transition-colors ${
             d ? "border-accent text-text" : "border-border text-text-dim"
           }`}>
-            {d || "·"}
+            {d ? (isColorMode ? <DigitPiece digit={d} size="md" /> : d) : "·"}
           </div>
         ))}
       </div>
 
-      {/* Numpad */}
-      <div className="grid grid-cols-3 gap-1.5 w-full max-w-[210px]">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-          <button key={n} type="button" onClick={() => addDigit(String(n))} disabled={disabled || isValid || usedDigits.has(String(n))}
-            className="h-11 bg-bg-elevated border border-border rounded-lg font-mono text-lg font-bold hover:bg-bg-hover active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
-            {n}
+      {isColorMode ? (
+        /* Color picker grid */
+        <div className="flex flex-col items-center gap-1.5 w-full max-w-[260px]">
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            {colorDigits!.map((d) => (
+              <button key={d} type="button" onClick={() => addDigit(d)} disabled={disabled || isValid || usedDigits.has(d)}
+                className="w-11 h-11 rounded-full border-2 border-border hover:border-accent/40 active:scale-90 transition-all cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed flex items-center justify-center"
+                style={{ background: digitToColor(d) ?? "transparent", boxShadow: `0 0 8px ${digitToColor(d)}40` }}>
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1.5">
+            <button type="button" onClick={removeDigit} disabled={disabled || filledCount === 0}
+              className="h-10 px-4 bg-bg-elevated border border-border rounded-lg text-text-muted hover:text-danger hover:border-danger/30 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33z" />
+              </svg>
+            </button>
+            <button type="button" onClick={submit} disabled={disabled || !isValid}
+              className="h-10 px-6 bg-accent text-bg rounded-lg font-semibold text-sm hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+              {confirmLabel}
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Number numpad */
+        <div className="grid grid-cols-3 gap-1.5 w-full max-w-[210px]">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+            <button key={n} type="button" onClick={() => addDigit(String(n))} disabled={disabled || isValid || usedDigits.has(String(n))}
+              className="h-11 bg-bg-elevated border border-border rounded-lg font-pixel-mono text-lg font-bold hover:bg-bg-hover active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+              {n}
+            </button>
+          ))}
+          <button type="button" onClick={removeDigit} disabled={disabled || filledCount === 0}
+            className="h-11 bg-bg-elevated border border-border rounded-lg text-text-muted hover:text-danger hover:border-danger/30 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33z" />
+            </svg>
           </button>
-        ))}
-        <button type="button" onClick={removeDigit} disabled={disabled || filledCount === 0}
-          className="h-11 bg-bg-elevated border border-border rounded-lg text-text-muted hover:text-danger hover:border-danger/30 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33z" />
-          </svg>
-        </button>
-        <button type="button" onClick={() => addDigit("0")} disabled={disabled || isValid || usedDigits.has("0")}
-          className="h-11 bg-bg-elevated border border-border rounded-lg font-mono text-lg font-bold hover:bg-bg-hover active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
-          0
-        </button>
-        <button type="button" onClick={submit} disabled={disabled || !isValid}
-          className="h-11 bg-accent text-bg rounded-lg font-semibold text-sm hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
-          {confirmLabel}
-        </button>
-      </div>
+          <button type="button" onClick={() => addDigit("0")} disabled={disabled || isValid || usedDigits.has("0")}
+            className="h-11 bg-bg-elevated border border-border rounded-lg font-pixel-mono text-lg font-bold hover:bg-bg-hover active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+            0
+          </button>
+          <button type="button" onClick={submit} disabled={disabled || !isValid}
+            className="h-11 bg-accent text-bg rounded-lg font-semibold text-sm hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+            {confirmLabel}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -295,12 +357,15 @@ function GuessRow({
   bulls,
   cows,
   index,
+  colorCount,
 }: {
   guess: string;
   bulls: number;
   cows: number;
   index: number;
+  colorCount?: number | null;
 }) {
+  const isColorMode = colorCount != null;
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
@@ -309,10 +374,10 @@ function GuessRow({
       className="flex flex-col gap-0.5"
     >
       <div className="flex items-center gap-1">
-        <span className="text-text-dim text-[9px] font-mono w-3 text-right shrink-0">{index + 1}</span>
+        <span className="text-text-dim text-[9px] font-pixel-mono w-3 text-right shrink-0">{index + 1}</span>
         {guess.split("").map((d, i) => (
-          <div key={i} className="w-7 h-7 bg-bg-elevated rounded flex items-center justify-center font-mono text-xs font-bold text-text">
-            {d}
+          <div key={i} className="w-7 h-7 bg-bg-elevated rounded flex items-center justify-center font-pixel-mono text-xs font-bold text-text">
+            {isColorMode ? <DigitPiece digit={d} size="sm" /> : d}
           </div>
         ))}
       </div>
@@ -333,6 +398,7 @@ function PlayerPanel({
   secretSet,
   won,
   mySecret,
+  colorCount,
 }: {
   label: string;
   avatarUrl: string;
@@ -341,7 +407,9 @@ function PlayerPanel({
   secretSet: boolean;
   won: boolean;
   mySecret?: string;
+  colorCount?: number | null;
 }) {
+  const isColorMode = colorCount != null;
   return (
     <div className="flex-1 flex flex-col min-w-0 p-2">
       {/* Compact header */}
@@ -365,7 +433,13 @@ function PlayerPanel({
           <div className="text-xs font-medium truncate">{label}</div>
         </div>
         {isMe && mySecret && (
-          <div className="font-mono text-[10px] font-bold text-accent">{mySecret}</div>
+          isColorMode ? (
+            <div className="flex gap-0.5">
+              {mySecret.split("").map((d, i) => <DigitPiece key={i} digit={d} size="sm" />)}
+            </div>
+          ) : (
+            <div className="font-pixel-mono text-[10px] font-bold text-accent">{mySecret}</div>
+          )
         )}
         <span className="text-[10px] text-text-dim">{guesses.length}</span>
       </div>
@@ -379,7 +453,7 @@ function PlayerPanel({
         ) : (
           <div className="flex flex-col gap-1">
             {guesses.map((g, i) => (
-              <GuessRow key={i} index={i} guess={g.guess} bulls={g.bulls} cows={g.cows} />
+              <GuessRow key={i} index={i} guess={g.guess} bulls={g.bulls} cows={g.cows} colorCount={colorCount} />
             ))}
           </div>
         )}
@@ -492,7 +566,7 @@ function useTutorialTips(guesses: { bulls: number; cows: number }[], notepadOpen
   return { input, notepad, guessArea, hasActiveTip, dismiss, isTutorial };
 }
 
-function SecretModal({ onSubmit }: { onSubmit: (secret: string) => void }) {
+function SecretModal({ onSubmit, colorCount }: { onSubmit: (secret: string) => void; colorCount?: number | null }) {
   const [remaining, setRemaining] = useState(30);
   const [deadline] = useState(() => Date.now() + 30000);
 
@@ -501,8 +575,9 @@ function SecretModal({ onSubmit }: { onSubmit: (secret: string) => void }) {
       const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setRemaining(left);
       if (left <= 0) {
-        // Auto-generate random secret
-        const digits = [0,1,2,3,4,5,6,7,8,9];
+        // Auto-generate random secret within the allowed range
+        const max = colorCount != null ? colorCount : 10;
+        const digits = Array.from({ length: max }, (_, i) => i);
         for (let i = digits.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [digits[i], digits[j]] = [digits[j], digits[i]]; }
         onSubmit(digits.slice(0, 4).join(""));
       }
@@ -510,7 +585,7 @@ function SecretModal({ onSubmit }: { onSubmit: (secret: string) => void }) {
     tick();
     const interval = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [deadline, onSubmit]);
+  }, [deadline, onSubmit, colorCount]);
 
   const pct = remaining / 30;
   const circumference = 2 * Math.PI * 58;
@@ -530,13 +605,13 @@ function SecretModal({ onSubmit }: { onSubmit: (secret: string) => void }) {
         </svg>
         <div className="bg-bg-card border border-border rounded-2xl p-8 text-center relative">
           <div className="absolute top-3 right-4">
-            <span className={`font-mono text-sm font-bold ${pct > 0.5 ? "text-success" : pct > 0.2 ? "text-warning" : "text-danger animate-pulse"}`}>
+            <span className={`font-pixel-mono text-sm font-bold ${pct > 0.5 ? "text-success" : pct > 0.2 ? "text-warning" : "text-danger animate-pulse"}`}>
               {remaining}s
             </span>
           </div>
           <h2 className="text-xl font-bold mb-1">{t("game.chooseSecret")}</h2>
           <p className="text-text-muted text-sm mb-6">{t("game.chooseSecretDesc")}. {t("game.autoPicks")} {remaining}s</p>
-          <DigitInput onSubmit={onSubmit} disabled={false} confirmLabel={t("game.confirm")} />
+          <DigitInput onSubmit={onSubmit} disabled={false} confirmLabel={t("game.confirm")} colorCount={colorCount} />
         </div>
       </motion.div>
     </motion.div>
@@ -546,7 +621,7 @@ function SecretModal({ onSubmit }: { onSubmit: (secret: string) => void }) {
 function GamePanelTabs({
   myName, myAvatar, myGuesses, mySecretSet, mySecret, isWinner,
   opponentName, opponentAvatar, opponentGuesses, opponentSecretSet, opponentWon,
-  isMyTurn,
+  isMyTurn, colorCount,
 }: {
   myName: string; myAvatar: string;
   myGuesses: { guess: string; bulls: number; cows: number }[];
@@ -555,6 +630,7 @@ function GamePanelTabs({
   opponentGuesses: { guess: string; bulls: number; cows: number }[];
   opponentSecretSet: boolean; opponentWon: boolean;
   isMyTurn: boolean;
+  colorCount?: number | null;
 }) {
   const [viewTab, setViewTab] = useState<"me" | "opponent">(isMyTurn ? "me" : "opponent");
 
@@ -596,6 +672,7 @@ function GamePanelTabs({
             <PlayerPanel
               label={myName} avatarUrl={myAvatar} isMe={true}
               guesses={myGuesses} secretSet={mySecretSet} won={isWinner} mySecret={mySecret}
+              colorCount={colorCount}
             />
           </motion.div>
         ) : (
@@ -603,6 +680,7 @@ function GamePanelTabs({
             <PlayerPanel
               label={opponentName} avatarUrl={opponentAvatar} isMe={false}
               guesses={opponentGuesses} secretSet={opponentSecretSet} won={opponentWon}
+              colorCount={colorCount}
             />
           </motion.div>
         )}
@@ -666,9 +744,9 @@ export default function GamePage() {
     <div className="flex-1 flex flex-col h-full max-w-5xl mx-auto w-full">
       {/* Top bar: timer takes center stage */}
       <div className="px-4 pt-3 pb-2 flex items-center justify-between shrink-0">
-        <h1 className="text-lg font-bold shrink-0">
-          <span className="text-bull">B</span><span className="text-text-dim">&</span><span className="text-cow">C</span>
-        </h1>
+        <div className="shrink-0">
+          <BrandTitle size="sm" />
+        </div>
         <div className="flex-1 flex justify-center">
           {game.status === "in_progress" && <TurnTimer deadline={game.turnDeadline} isMyTurn={game.isMyTurn} frozen={tutorial.hasActiveTip} />}
         </div>
@@ -725,14 +803,20 @@ export default function GamePage() {
       {/* Secret Setting Modal with 30s timer */}
       <AnimatePresence>
         {game.status === "waiting_secrets" && !game.mySecretSet && (
-          <SecretModal onSubmit={game.setSecret} />
+          <SecretModal onSubmit={game.setSecret} colorCount={game.colorCount} />
         )}
         {game.status === "waiting_secrets" && game.mySecretSet && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <motion.div className="bg-bg-card border border-accent/20 rounded-2xl p-8 max-w-sm w-full text-center">
               <div className="text-accent text-lg font-medium mb-2">{t("game.confirm")}!</div>
-              <div className="font-mono text-2xl font-bold text-accent tracking-[0.3em] mb-3">{game.mySecret}</div>
+              {game.colorCount != null ? (
+                <div className="flex gap-2 justify-center mb-3">
+                  {(game.mySecret || "").split("").map((d, i) => <DigitPiece key={i} digit={d} size="lg" />)}
+                </div>
+              ) : (
+                <div className="font-pixel-mono text-2xl font-bold text-accent tracking-[0.3em] mb-3">{game.mySecret}</div>
+              )}
               <p className="text-text-muted text-sm">{game.opponentSecretSet ? "Starting..." : "Waiting for opponent..."}</p>
               {!game.opponentSecretSet && <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mt-3" />}
             </motion.div>
@@ -747,12 +831,13 @@ export default function GamePage() {
           <PlayerPanel
             label={session?.user?.name || "You"} avatarUrl={session?.user?.image || ""}
             isMe={true} guesses={game.myGuesses} secretSet={game.mySecretSet} won={isWinner} mySecret={game.mySecret || undefined}
+            colorCount={game.colorCount}
           />
         </div>
 
         {/* Divider */}
         <div className="w-px bg-border relative shrink-0 my-2">
-          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 bg-bg text-text-dim text-[10px] font-mono px-1 py-1">VS</div>
+          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 bg-bg text-text-dim text-[10px] font-pixel-mono px-1 py-1">VS</div>
         </div>
 
         {/* Opponent panel */}
@@ -761,6 +846,7 @@ export default function GamePage() {
             label={game.opponent.displayName} avatarUrl={game.opponent.avatarUrl}
             isMe={false} guesses={game.opponentGuesses} secretSet={game.opponentSecretSet}
             won={game.result?.winnerId === game.opponent.userId}
+            colorCount={game.colorCount}
           />
         </div>
 
@@ -770,7 +856,7 @@ export default function GamePage() {
             <AnimatePresence>
               {tutorial.notepad && <TutorialBubble id={tutorial.notepad.key} text={tutorial.notepad.text} onDismiss={() => tutorial.dismiss(tutorial.notepad!.key)} />}
             </AnimatePresence>
-            <Notepad guesses={game.myGuesses} />
+            <Notepad guesses={game.myGuesses} colorCount={game.colorCount} />
           </div>
         )}
       </div>
@@ -796,7 +882,7 @@ export default function GamePage() {
               </AnimatePresence>
               <div className="flex items-start gap-2">
                 <div className="flex-1">
-                  <DigitInput onSubmit={game.submitGuess} disabled={false} confirmLabel={t("game.confirm")} />
+                  <DigitInput onSubmit={game.submitGuess} disabled={false} confirmLabel={t("game.confirm")} colorCount={game.colorCount} />
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
                   <button
@@ -859,7 +945,7 @@ export default function GamePage() {
                     className="absolute top-2 right-2 text-[10px] text-text-dim hover:text-text-muted cursor-pointer z-10">
                     {t("game.close")}
                   </button>
-                  <Notepad guesses={game.myGuesses} />
+                  <Notepad guesses={game.myGuesses} colorCount={game.colorCount} />
                 </div>
               </motion.div>
             )}
@@ -892,9 +978,15 @@ export default function GamePage() {
             <div className="flex gap-4 mb-6">
               <div className={`flex-1 rounded-xl p-4 text-center border ${isWinner ? "border-success/30 bg-success/5" : "border-border bg-bg-card"}`}>
                 <div className="text-xs text-text-dim mb-1">{t("game.yourSecret")}</div>
-                <div className="font-mono text-2xl font-bold text-accent tracking-widest">
-                  {game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret}
-                </div>
+                {game.colorCount != null ? (
+                  <div className="flex gap-2 justify-center">
+                    {(game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret).split("").map((d, i) => <DigitPiece key={i} digit={d} size="lg" />)}
+                  </div>
+                ) : (
+                  <div className="font-pixel-mono text-2xl font-bold text-accent tracking-widest">
+                    {game.myRole === "host" ? game.result.hostSecret : game.result.challengerSecret}
+                  </div>
+                )}
                 <div className="text-xs text-text-dim mt-1">{game.myGuesses.length} guesses</div>
               </div>
               <div className={`flex-1 rounded-xl p-4 text-center border ${!isWinner && !isDraw ? "border-success/30 bg-success/5" : "border-border bg-bg-card"}`}>
@@ -912,9 +1004,15 @@ export default function GamePage() {
                   )}
                   {game.opponent?.displayName}
                 </div>
-                <div className="font-mono text-2xl font-bold text-accent tracking-widest">
-                  {game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret}
-                </div>
+                {game.colorCount != null ? (
+                  <div className="flex gap-2 justify-center">
+                    {(game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret).split("").map((d, i) => <DigitPiece key={i} digit={d} size="lg" />)}
+                  </div>
+                ) : (
+                  <div className="font-pixel-mono text-2xl font-bold text-accent tracking-widest">
+                    {game.myRole === "host" ? game.result.challengerSecret : game.result.hostSecret}
+                  </div>
+                )}
                 <div className="text-xs text-text-dim mt-1">{game.opponentGuesses.length} guesses</div>
               </div>
             </div>
@@ -932,29 +1030,33 @@ export default function GamePage() {
                     <span className="text-[9px] text-accent w-3 shrink-0">?</span>
                     <div className="flex gap-0.5">
                       {target.split("").map((d, j) => (
-                        <span key={j} className="w-5 h-5 rounded flex items-center justify-center font-mono text-[11px] bg-accent/20 text-accent font-bold">{d}</span>
+                        game.colorCount != null
+                          ? <DigitPiece key={j} digit={d} size="sm" />
+                          : <span key={j} className="w-5 h-5 rounded flex items-center justify-center font-pixel-mono text-[11px] bg-accent/20 text-accent font-bold">{d}</span>
                       ))}
                     </div>
                     <span className="ml-auto text-[10px] text-accent">secret</span>
                   </div>
                   <div className="bg-bg-card border border-border rounded-xl p-2 space-y-1.5 max-h-72 overflow-y-auto">
                     {guesses.map((g, i) => {
-                      // Color each digit: green=bull, blue=cow, dim=miss
-                      const digitColors = g.guess.split("").map((d, pos) => {
-                        if (d === secret[pos]) return "text-bull font-bold";
-                        if (secret.includes(d)) return "text-cow font-bold";
-                        return "text-text-dim";
+                      // Per-digit state: bull (right pos), cow (in secret wrong pos), miss (not in secret)
+                      const digitStates = g.guess.split("").map((d, pos) => {
+                        if (d === secret[pos]) return "bull" as const;
+                        if (secret.includes(d) && d !== "-") return "cow" as const;
+                        return "miss" as const;
                       });
                       return (
                         <div key={i} className="flex items-center gap-0.5 text-[11px]">
-                          <span className="text-text-dim w-3 text-right font-mono shrink-0">{i+1}</span>
+                          <span className="text-text-dim w-3 text-right font-pixel-mono shrink-0">{i+1}</span>
                           <div className="flex gap-0.5">
                             {g.guess.split("").map((d, j) => (
-                              <span key={j} className={`w-5 h-5 rounded flex items-center justify-center font-mono text-[11px] ${
-                                digitColors[j] === "text-bull font-bold" ? "bg-bull/20 text-bull font-bold"
-                                : digitColors[j] === "text-cow font-bold" ? "bg-cow/20 text-cow font-bold"
-                                : "bg-bg-elevated text-text-dim"
-                              }`}>{d}</span>
+                              game.colorCount != null
+                                ? <DigitPiece key={j} digit={d} size="sm" state={digitStates[j]} />
+                                : <span key={j} className={`w-5 h-5 rounded flex items-center justify-center font-pixel-mono text-[11px] ${
+                                    digitStates[j] === "bull" ? "bg-bull/20 text-bull font-bold"
+                                    : digitStates[j] === "cow" ? "bg-cow/20 text-cow font-bold"
+                                    : "bg-bg-elevated text-text-dim"
+                                  }`}>{d}</span>
                             ))}
                           </div>
                           <span className="ml-auto flex gap-0.5 shrink-0">

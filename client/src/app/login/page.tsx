@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useT } from "@/lib/i18n";
+import { BrandTitle } from "@/components/BrandTitle";
 
 export default function LoginPage() {
   const { status } = useSession();
@@ -38,11 +39,9 @@ export default function LoginPage() {
         transition={{ duration: 0.5 }}
         className="relative z-10 bg-bg-card border border-border rounded-2xl p-8 sm:p-10 max-w-sm w-full text-center"
       >
-        <h1 className="text-3xl font-bold mb-2">
-          <span className="text-bull">Bulls</span>
-          <span className="text-text-dim mx-1">&</span>
-          <span className="text-cow">Cows</span>
-        </h1>
+        <div className="mb-4">
+          <BrandTitle size="md" />
+        </div>
 
         <p className="text-text-muted mb-8">{t("login.signIn")}</p>
 

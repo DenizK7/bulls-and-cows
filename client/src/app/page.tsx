@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useT } from "@/lib/i18n";
+import { BrandTitle } from "@/components/BrandTitle";
 
 const DEMO_GUESSES = [
   { guess: "1234", bulls: 0, cows: 2, delay: 0 },
@@ -119,11 +120,9 @@ export default function Home() {
           transition={{ duration: 0.6 }}
           className="text-center"
         >
-          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-4">
-            <span className="text-bull">Bulls</span>
-            <span className="text-text-dim mx-2">&</span>
-            <span className="text-cow">Cows</span>
-          </h1>
+          <div className="mb-4">
+            <BrandTitle size="lg" animate />
+          </div>
           <p className="text-text-muted text-lg">
             {t("landing.title.crack")} {t("landing.title.challenge")}
           </p>

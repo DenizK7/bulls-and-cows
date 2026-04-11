@@ -9,10 +9,11 @@ const readyStates = new Map<string, Set<string>>(); // inviteId -> set of ready 
 
 export function handleInviteEvents(io: Server, socket: AuthenticatedSocket): void {
   // Send invite to a friend
-  socket.on('client:invite:send', async ({ toUserId, turnTime }: { toUserId: string; turnTime: number }) => {
+  socket.on('client:invite:send', async ({ toUserId, turnTime, colorCount }: { toUserId: string; turnTime: number; colorCount?: number | null }) => {
     try {
       const validTimes = [30000, 60000, 120000];
       const turnTimeMs = validTimes.includes(turnTime) ? turnTime : 60000;
+      const validColorCount = (typeof colorCount === 'number' && [5, 6, 7, 8].includes(colorCount)) ? colorCount : null;
 
       const inviteId = `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await redis.hset(`invite:${inviteId}`, {
@@ -21,6 +22,7 @@ export function handleInviteEvents(io: Server, socket: AuthenticatedSocket): voi
         fromAvatar: socket.avatarUrl,
         toUserId,
         turnTimeMs: String(turnTimeMs),
+        colorCount: validColorCount == null ? '' : String(validColorCount),
         status: 'pending',
       });
       await redis.expire(`invite:${inviteId}`, INVITE_TTL);
@@ -34,6 +36,7 @@ export function handleInviteEvents(io: Server, socket: AuthenticatedSocket): voi
             inviteId,
             from: { userId: socket.userId, displayName: socket.displayName, avatarUrl: socket.avatarUrl },
             turnTimeMs,
+            colorCount: validColorCount,
           });
         }
       }
@@ -57,6 +60,7 @@ export function handleInviteEvents(io: Server, socket: AuthenticatedSocket): voi
       await redis.hset(`invite:${inviteId}`, 'status', 'accepted');
       readyStates.set(inviteId, new Set());
 
+      const inviteColorCount = data.colorCount ? parseInt(data.colorCount, 10) : null;
       const sockets = await io.fetchSockets();
       for (const s of sockets) {
         const as = s as unknown as AuthenticatedSocket;
@@ -66,6 +70,7 @@ export function handleInviteEvents(io: Server, socket: AuthenticatedSocket): voi
             fromUserId: data.fromUserId,
             toUserId: data.toUserId,
             turnTimeMs: parseInt(data.turnTimeMs),
+            colorCount: inviteColorCount,
           });
         }
       }
@@ -105,8 +110,10 @@ export function handleInviteEvents(io: Server, socket: AuthenticatedSocket): voi
         setTimeout(async () => {
           try {
             const turnTimeMs = parseInt(data.turnTimeMs) || 60000;
+            const inviteColorCount = data.colorCount ? parseInt(data.colorCount, 10) : null;
             const game = await Game.create({
               type: 'pvp', matchType: 'friendly', status: 'waiting_secrets', turnTimeMs,
+              colorCount: inviteColorCount,
               players: {
                 host: { userId: data.fromUserId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
                 challenger: { userId: data.toUserId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },

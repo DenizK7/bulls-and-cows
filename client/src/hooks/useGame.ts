@@ -29,6 +29,7 @@ interface GameState {
     eloChange: { host: number; challenger: number } | null;
   } | null;
   mySecret: string | null;
+  colorCount: number | null;
 }
 
 type Action =
@@ -54,6 +55,7 @@ const initialState: GameState = {
   opponent: null,
   result: null,
   mySecret: null,
+  colorCount: null,
 };
 
 function reducer(state: GameState, action: Action): GameState {
@@ -76,6 +78,7 @@ function reducer(state: GameState, action: Action): GameState {
         opponentGuesses: (opp.guesses as GuessResult[]) || [],
         currentRound: (p.currentRound as number) || 1,
         currentTurn: (p.currentTurn as "host" | "challenger") || null,
+        colorCount: (p.colorCount as number | null | undefined) ?? null,
         opponent: {
           userId: opp.userId as string,
           displayName: opp.displayName as string,
