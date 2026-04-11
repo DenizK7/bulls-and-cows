@@ -48,6 +48,7 @@ export default function LobbyPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const music = useMusicPlayer();
   const { t, lang, setLang: changeLang } = useT();
+  const [aiTurnTime, setAiTurnTime] = useState(60000);
   const [editName, setEditName] = useState("");
   const [nameMsg, setNameMsg] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -168,7 +169,6 @@ export default function LobbyPage() {
   const user = session?.user;
   const userTag = (session as { tag?: string })?.tag || "0000";
 
-  const [aiTurnTime, setAiTurnTime] = useState(60000);
   const handlePlayAI = (difficulty: string) => socket?.emit("client:game:start-ai", { difficulty, turnTimeMs: aiTurnTime });
 
   const handleFindMatch = () => {
