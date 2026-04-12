@@ -29,15 +29,16 @@ export default function LoginPage() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[20%] left-[15%] w-72 h-72 bg-bull/5 rounded-full blur-[100px]" />
-        <div className="absolute bottom-[25%] right-[15%] w-80 h-80 bg-cow/5 rounded-full blur-[100px]" />
+        <div className="absolute top-[20%] left-[10%] w-80 h-80 bg-bull/8 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[20%] right-[10%] w-80 h-80 bg-cow/6 rounded-full blur-[120px]" />
+        <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-[400px] h-[300px] bg-accent/5 rounded-full blur-[140px]" />
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 bg-bg-card border border-border rounded-2xl p-8 sm:p-10 max-w-sm w-full text-center"
+        className="relative z-10 glass-card rounded-2xl p-8 sm:p-10 max-w-sm w-full text-center"
       >
         <div className="mb-4">
           <BrandTitle size="md" />

@@ -37,10 +37,21 @@
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  /* Subtle warm radial glow — breaks the flat look */
+  /* Layered warm gradients + vignette for depth */
   background-image:
-    radial-gradient(ellipse 80% 60% at 50% 0%, #1e1a1505 0%, transparent 70%),
-    radial-gradient(ellipse 50% 40% at 80% 100%, #c2916a04 0%, transparent 60%);
+    /* Top warm glow */
+    radial-gradient(ellipse 70% 50% at 50% 0%, #c2916a0c 0%, transparent 60%),
+    /* Bottom-left green accent */
+    radial-gradient(ellipse 50% 40% at 10% 90%, #7cb87c08 0%, transparent 50%),
+    /* Bottom-right amber accent */
+    radial-gradient(ellipse 40% 35% at 90% 85%, #c2916a0a 0%, transparent 50%),
+    /* Center ambient warmth */
+    radial-gradient(ellipse 80% 60% at 45% 40%, #1e1a1510 0%, transparent 70%),
+    /* Vignette — darker edges for focus */
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 50%, #0a090840 100%),
+    /* Subtle dot grid — adds texture */
+    radial-gradient(circle, var(--color-border) 0.5px, transparent 0.5px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 24px 24px;
   background-attachment: fixed;
 }
 
@@ -57,6 +68,18 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-light);
+}
+
+/* Glass card effect — subtle frosted glass for cards */
+.glass-card {
+  background: linear-gradient(
+    135deg,
+    rgba(27, 24, 22, 0.8) 0%,
+    rgba(27, 24, 22, 0.6) 100%
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
 }
 
 /* Digit card flip */

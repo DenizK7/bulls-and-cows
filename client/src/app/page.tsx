@@ -105,11 +105,16 @@ export default function Home() {
   const { t } = useT();
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 overflow-hidden">
-      {/* Background decorations */}
+      {/* Background decorations — layered ambient glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[15%] left-[10%] w-72 h-72 bg-bull/5 rounded-full blur-[100px]" />
-        <div className="absolute bottom-[20%] right-[10%] w-96 h-96 bg-cow/5 rounded-full blur-[120px]" />
-        <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/3 rounded-full blur-[150px]" />
+        {/* Top-left warm green glow */}
+        <div className="absolute top-[10%] left-[5%] w-80 h-80 bg-bull/8 rounded-full blur-[120px]" />
+        {/* Bottom-right amber glow */}
+        <div className="absolute bottom-[15%] right-[5%] w-96 h-96 bg-cow/6 rounded-full blur-[140px]" />
+        {/* Center large ambient */}
+        <div className="absolute top-[40%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-accent/4 rounded-full blur-[180px]" />
+        {/* Title spotlight — bright warm circle behind the logo */}
+        <div className="absolute top-[12%] left-[50%] -translate-x-1/2 w-[400px] h-[250px] bg-accent/6 rounded-full blur-[100px]" />
       </div>
 
       <div className="relative z-10 flex flex-col items-center gap-6 max-w-lg w-full">
@@ -133,7 +138,7 @@ export default function Home() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="bg-bg-card/80 backdrop-blur-sm border border-border rounded-2xl p-4 sm:p-5 w-full"
+          className="glass-card rounded-2xl p-4 sm:p-5 w-full"
         >
           <div className="flex items-center justify-between mb-5">
             <span className="text-text-muted text-sm font-medium uppercase tracking-wider">
