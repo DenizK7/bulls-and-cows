@@ -35,7 +35,7 @@ const SIZE_CONFIG: Record<Size, {
     swordCls: "w-14 h-14 sm:w-16 sm:h-16",
     containerGap: "gap-3",
     sparkCount: 5,
-    sparkRadius: 28,
+    sparkRadius: 32,
     sparkFont: "text-[9px] sm:text-[10px]",
   },
 };
@@ -51,15 +51,14 @@ interface Spark {
   scale: number;
 }
 
-// Digits dripping from the lower-left and lower-right of the crossed swords.
-// First two anchor at the sword's lower corners, the rest trail downward beneath them.
-// Positions are normalized; multiplied by `radius` per size.
+// Digits trailing along each sword's diagonal — left sword drips down-left,
+// right sword drips down-right, one small center below crossing point.
 const DRIP_POSITIONS = [
-  { nx: -0.70, ny: 0.55 },  // 1: sword lower-left
-  { nx: 0.70, ny: 0.55 },   // 2: sword lower-right
-  { nx: -0.50, ny: 0.85 },  // 3: trailing left
-  { nx: 0.50, ny: 0.85 },   // 4: trailing right
-  { nx: 0.0, ny: 1.0 },     // 5: center, deepest
+  { nx: -0.45, ny: 0.50 },  // left pommel area
+  { nx: 0.45, ny: 0.50 },   // right pommel area
+  { nx: -0.80, ny: 0.88 },  // left trail, following diagonal outward
+  { nx: 0.80, ny: 0.88 },   // right trail, following diagonal outward
+  { nx: 0.0, ny: 0.35 },    // center, just below where blades cross
 ];
 
 function makeSparks(count: number, radius: number): Spark[] {
