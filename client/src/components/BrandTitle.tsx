@@ -87,7 +87,7 @@ export function BrandTitle({ size = "md", animate = false }: { size?: Size; anim
 
   // Animation timings — only used when `animate` is true (landing page)
   // Sparks appear AFTER the clash flash (~0.65s)
-  const sparkBaseDelay = animate ? 3.3 : 0;
+  const sparkBaseDelay = animate ? 2.3 : 0;
   const sparkDuration = animate ? 0.4 : 0;
 
   // Dust particles — bigger, more dramatic
@@ -99,7 +99,7 @@ export function BrandTitle({ size = "md", animate = false }: { size?: Size; anim
       <motion.span className="text-bull relative inline-block"
         initial={animate ? { y: -300, opacity: 0 } : {}}
         animate={animate ? { y: [-300, 0, -14, 0], opacity: [0, 1, 1, 1] } : { y: 0, opacity: 1 }}
-        transition={animate ? { duration: 1, ease: "easeOut", delay: 0.3, times: [0, 0.5, 0.75, 1] } : { duration: 0 }}
+        transition={animate ? { duration: 0.8, ease: "easeOut", delay: 0.2, times: [0, 0.5, 0.75, 1] } : { duration: 0 }}
       >
         Digit
         {/* Dust explosion on slam — 24 particles bursting from bottom */}
@@ -116,7 +116,7 @@ export function BrandTitle({ size = "md", animate = false }: { size?: Size; anim
                 opacity: [0, 0.9, 0],
                 scale: [0, 1.5, 0],
               }}
-              transition={{ duration: 0.8, delay: 0.95, ease: "easeOut" }}
+              transition={{ duration: 0.8, delay: 0.7, ease: "easeOut" }}
             >
               <span className="block w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-cow/70" />
             </motion.span>
@@ -153,7 +153,7 @@ export function BrandTitle({ size = "md", animate = false }: { size?: Size; anim
       <motion.span className="text-cow relative inline-block"
         initial={animate ? { y: -300, opacity: 0 } : {}}
         animate={animate ? { y: [-300, 0, -14, 0], opacity: [0, 1, 1, 1] } : { y: 0, opacity: 1 }}
-        transition={animate ? { duration: 1, ease: "easeOut", delay: 1.5, times: [0, 0.5, 0.75, 1] } : { duration: 0 }}
+        transition={animate ? { duration: 0.8, ease: "easeOut", delay: 1.0, times: [0, 0.5, 0.75, 1] } : { duration: 0 }}
       >
         Duel
         {animate && mounted && Array.from({ length: 24 }).map((_, i) => {
@@ -169,7 +169,7 @@ export function BrandTitle({ size = "md", animate = false }: { size?: Size; anim
                 opacity: [0, 0.9, 0],
                 scale: [0, 1.5, 0],
               }}
-              transition={{ duration: 0.8, delay: 2.15, ease: "easeOut" }}
+              transition={{ duration: 0.8, delay: 1.5, ease: "easeOut" }}
             >
               <span className="block w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-cow/70" />
             </motion.span>

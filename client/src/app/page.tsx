@@ -181,7 +181,7 @@ export default function Home() {
         >
           <BrandTitle size="lg" animate />
           <motion.p className="font-pixel text-[8px] sm:text-[10px] text-text-muted mt-3 tracking-wide"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3.5, duration: 0.5 }}>
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.4, duration: 0.5 }}>
             {t("landing.title.crack")} {t("landing.title.challenge")}
           </motion.p>
         </motion.div>
@@ -190,7 +190,7 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 3.8, duration: 0.5 }}
+          transition={{ delay: 2.6, duration: 0.5 }}
           className="glass-card rounded-sm p-3 sm:p-4 w-full border border-border"
         >
           <div className="flex items-center justify-between mb-2">
@@ -217,7 +217,7 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 4.2 }}
+          transition={{ delay: 2.9 }}
           className="flex gap-5 sm:gap-6 text-center font-pixel"
         >
           <div>
@@ -242,7 +242,7 @@ export default function Home() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 4.5, duration: 0.4 }}
+        transition={{ delay: 3.1, duration: 0.4 }}
         className="flex items-end justify-center gap-0 w-full max-w-sm mx-auto relative z-10"
       >
         {/* Left warrior — lunges right on attack */}
@@ -298,12 +298,12 @@ export default function Home() {
           clipPath: `polygon(
             0% 100%,
             0% 55%, 3% 55%, 3% 48%, 7% 48%, 7% 42%, 11% 42%, 11% 36%,
-            15% 36%, 15% 30%, 19% 30%, 19% 22%, 24% 22%, 24% 15%,
-            30% 15%, 30% 22%, 34% 22%, 34% 32%, 38% 32%, 38% 44%,
+            15% 36%, 15% 32%, 19% 32%, 19% 26%, 24% 26%, 24% 22%,
+            30% 22%, 30% 26%, 34% 26%, 34% 32%, 38% 32%, 38% 44%,
             42% 44%, 42% 55%, 46% 55%, 46% 50%, 50% 50%, 50% 55%,
             54% 55%, 54% 50%, 58% 50%, 58% 55%,
             58% 55%, 58% 44%, 60% 44%, 60% 32%, 64% 32%, 64% 22%,
-            66% 22%, 66% 15%, 72% 15%, 72% 22%, 76% 22%, 76% 30%,
+            66% 26%, 66% 22%, 72% 22%, 72% 26%, 76% 22%, 76% 30%,
             80% 30%, 80% 36%, 84% 36%, 84% 42%, 88% 42%, 88% 55%,
             100% 55%, 100% 100%
           )`

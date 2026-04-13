@@ -74,14 +74,14 @@ export function CrossedSwords({ className = "w-6 h-6", animate = false }: { clas
       <motion.span className="absolute inset-0"
         initial={{ x: "-100%", rotate: -45, opacity: 0 }}
         animate={{ x: 0, rotate: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 2.8 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 1.8 }}
       >
         <LeftSword />
       </motion.span>
       <motion.span className="absolute inset-0"
         initial={{ x: "100%", rotate: 45, opacity: 0 }}
         animate={{ x: 0, rotate: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 2.8 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 1.8 }}
       >
         <RightSword />
       </motion.span>
@@ -89,7 +89,7 @@ export function CrossedSwords({ className = "w-6 h-6", animate = false }: { clas
       <motion.span className="absolute inset-0 rounded-full bg-white"
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: [0, 1.8, 0], opacity: [0, 0.6, 0] }}
-        transition={{ duration: 0.5, delay: 3.25, ease: "easeOut" }}
+        transition={{ duration: 0.5, delay: 2.2, ease: "easeOut" }}
       />
     </span>
   );
