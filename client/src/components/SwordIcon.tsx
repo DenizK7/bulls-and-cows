@@ -11,7 +11,7 @@ const guardShade = "#8a5e3a";
 const grip = "#3a2820";
 
 // Sword pointing top-right, hilt bottom-left (24x24)
-function LeftSword({ className = "" }: { className?: string }) {
+export function LeftSword({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" shapeRendering="crispEdges" className={className}>
       {/* Blade — diagonal stair-step, 3-wide */}
@@ -38,7 +38,7 @@ function LeftSword({ className = "" }: { className?: string }) {
 }
 
 // Sword pointing top-left, hilt bottom-right (24x24)
-function RightSword({ className = "" }: { className?: string }) {
+export function RightSword({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" shapeRendering="crispEdges" className={className}>
       <rect x="3" y="2" width="3" height="2" fill={blade} />
@@ -74,14 +74,14 @@ export function CrossedSwords({ className = "w-6 h-6", animate = false }: { clas
       <motion.span className="absolute inset-0"
         initial={{ x: "-100%", rotate: -45, opacity: 0 }}
         animate={{ x: 0, rotate: 0, opacity: 1 }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 2.8 }}
       >
         <LeftSword />
       </motion.span>
       <motion.span className="absolute inset-0"
         initial={{ x: "100%", rotate: 45, opacity: 0 }}
         animate={{ x: 0, rotate: 0, opacity: 1 }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 2.8 }}
       >
         <RightSword />
       </motion.span>
@@ -89,7 +89,7 @@ export function CrossedSwords({ className = "w-6 h-6", animate = false }: { clas
       <motion.span className="absolute inset-0 rounded-full bg-white"
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: [0, 1.8, 0], opacity: [0, 0.6, 0] }}
-        transition={{ duration: 0.4, delay: 0.6, ease: "easeOut" }}
+        transition={{ duration: 0.5, delay: 3.25, ease: "easeOut" }}
       />
     </span>
   );

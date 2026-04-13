@@ -28,11 +28,15 @@ export default function LoginPage() {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[20%] left-[10%] w-80 h-80 bg-bull/8 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[20%] right-[10%] w-80 h-80 bg-cow/6 rounded-full blur-[120px]" />
-        <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-[400px] h-[300px] bg-accent/5 rounded-full blur-[140px]" />
-      </div>
+      {/* Warm glow sun */}
+      <div className="fixed top-6 left-6 w-16 h-16 rounded-lg opacity-25 pointer-events-none z-0"
+        style={{ background: "#c2916a", boxShadow: "0 0 60px 30px #c2916a30" }} />
+      {/* Mountain silhouette */}
+      <div className="fixed bottom-0 left-0 right-0 h-16 sm:h-20 pointer-events-none z-0"
+        style={{
+          background: "linear-gradient(to right, #252018 0%, #30291f 25%, #252018 40%, #3b3328 55%, #30291f 70%, #252018 85%, #3b3328 100%)",
+          clipPath: "polygon(0% 100%, 0% 60%, 5% 45%, 12% 55%, 20% 35%, 28% 50%, 35% 25%, 42% 40%, 50% 20%, 58% 35%, 65% 45%, 72% 30%, 80% 50%, 88% 35%, 95% 55%, 100% 40%, 100% 100%)"
+        }} />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -48,7 +52,7 @@ export default function LoginPage() {
 
         <button
           onClick={() => signIn("google", { callbackUrl: "/lobby" })}
-          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-white text-gray-800 font-medium rounded-xl hover:bg-gray-50 transition-colors cursor-pointer active:scale-[0.98]"
+          className="btn-3d w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-white text-gray-800 font-medium rounded-xl cursor-pointer"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path

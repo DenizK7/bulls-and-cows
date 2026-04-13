@@ -416,7 +416,7 @@ export default function LobbyPage() {
                     { label: t("difficulty.hard"), difficulty: "hard", color: "text-danger border-danger/20 bg-danger/5" },
                   ].map((m) => (
                     <button key={m.difficulty} onClick={() => handlePlayAI(m.difficulty)} disabled={!connected}
-                      className={`border rounded-lg py-2.5 text-center font-bold text-sm hover:brightness-125 transition-all cursor-pointer active:scale-[0.97] disabled:opacity-40 ${m.color}`}>
+                      className={`btn-3d border rounded-lg py-2.5 text-center font-bold text-sm cursor-pointer disabled:opacity-40 ${m.color}`}>
                       {m.label}
                     </button>
                   ))}
@@ -427,8 +427,8 @@ export default function LobbyPage() {
               <div className="bg-bg-card border border-border rounded-xl p-4">
                 <h2 className="text-sm font-semibold mb-2">{t("lobby.playOnline")}</h2>
                 <button onClick={handleFindMatch} disabled={!connected}
-                  className={`w-full py-3 rounded-lg font-semibold text-sm transition-all cursor-pointer active:scale-[0.98] disabled:opacity-40 ${
-                    matchmaking ? "bg-danger/15 border border-danger text-danger" : "bg-accent text-bg hover:brightness-110"
+                  className={`btn-3d w-full py-3 rounded-lg font-semibold text-sm cursor-pointer disabled:opacity-40 ${
+                    matchmaking ? "bg-danger/15 border border-danger text-danger" : "bg-accent text-bg"
                   }`}>
                   {matchmaking ? (
                     <span className="flex items-center justify-center gap-2">

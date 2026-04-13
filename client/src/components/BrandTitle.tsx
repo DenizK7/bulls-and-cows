@@ -87,12 +87,44 @@ export function BrandTitle({ size = "md", animate = false }: { size?: Size; anim
 
   // Animation timings — only used when `animate` is true (landing page)
   // Sparks appear AFTER the clash flash (~0.65s)
-  const sparkBaseDelay = animate ? 0.7 : 0;
+  const sparkBaseDelay = animate ? 3.3 : 0;
   const sparkDuration = animate ? 0.4 : 0;
+
+  // Dust particles — bigger, more dramatic
+  const dustCount = animate ? 8 : 0;
 
   return (
     <h1 className={`font-pixel ${cfg.text} flex items-center justify-center ${cfg.containerGap} relative leading-none`}>
-      <span className="text-bull">Digit</span>
+      {/* "Digit" — falls, slams, bounces once */}
+      <motion.span className="text-bull relative inline-block"
+        initial={animate ? { y: -300, opacity: 0 } : {}}
+        animate={animate ? { y: [-300, 0, -14, 0], opacity: [0, 1, 1, 1] } : { y: 0, opacity: 1 }}
+        transition={animate ? { duration: 1, ease: "easeOut", delay: 0.3, times: [0, 0.5, 0.75, 1] } : { duration: 0 }}
+      >
+        Digit
+        {/* Dust explosion on slam — 24 particles bursting from bottom */}
+        {animate && mounted && Array.from({ length: 24 }).map((_, i) => {
+          const angle = (i / 24) * Math.PI; // 0 to PI (semicircle upward)
+          const dist = 20 + (i % 5) * 10;
+          return (
+            <motion.span key={`dl${i}`}
+              className="absolute -bottom-1 left-1/2 pointer-events-none"
+              initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
+              animate={{
+                x: Math.cos(angle) * dist * (i % 2 ? 1 : -1),
+                y: -Math.sin(angle) * dist,
+                opacity: [0, 0.9, 0],
+                scale: [0, 1.5, 0],
+              }}
+              transition={{ duration: 0.8, delay: 0.95, ease: "easeOut" }}
+            >
+              <span className="block w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-cow/70" />
+            </motion.span>
+          );
+        })}
+      </motion.span>
+
+      {/* Swords appear after both words land */}
       <span className="relative inline-block">
         <CrossedSwords className={cfg.swordCls} animate={animate} />
         {/* Pixel digit sparks frozen mid-flight — client-only to avoid hydration issues */}
@@ -117,7 +149,33 @@ export function BrandTitle({ size = "md", animate = false }: { size?: Size; anim
           </motion.span>
         ))}
       </span>
-      <span className="text-cow">Duel</span>
+      {/* "Duel" — falls, slams, bounces once */}
+      <motion.span className="text-cow relative inline-block"
+        initial={animate ? { y: -300, opacity: 0 } : {}}
+        animate={animate ? { y: [-300, 0, -14, 0], opacity: [0, 1, 1, 1] } : { y: 0, opacity: 1 }}
+        transition={animate ? { duration: 1, ease: "easeOut", delay: 1.5, times: [0, 0.5, 0.75, 1] } : { duration: 0 }}
+      >
+        Duel
+        {animate && mounted && Array.from({ length: 24 }).map((_, i) => {
+          const angle = (i / 24) * Math.PI;
+          const dist = 20 + (i % 5) * 10;
+          return (
+            <motion.span key={`dr${i}`}
+              className="absolute -bottom-1 left-1/2 pointer-events-none"
+              initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
+              animate={{
+                x: Math.cos(angle) * dist * (i % 2 ? 1 : -1),
+                y: -Math.sin(angle) * dist,
+                opacity: [0, 0.9, 0],
+                scale: [0, 1.5, 0],
+              }}
+              transition={{ duration: 0.8, delay: 2.15, ease: "easeOut" }}
+            >
+              <span className="block w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-cow/70" />
+            </motion.span>
+          );
+        })}
+      </motion.span>
     </h1>
   );
 }

@@ -70,6 +70,33 @@ body {
   background: var(--color-border-light);
 }
 
+/* 3D button — gradient top-highlight + shadow for depth, sinks on press */
+.btn-3d {
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    transparent 45%,
+    rgba(0, 0, 0, 0.12) 100%
+  );
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.btn-3d:hover {
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.4),
+    0 2px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.btn-3d:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 /* Glass card effect — subtle frosted glass for cards */
 .glass-card {
   background: linear-gradient(
