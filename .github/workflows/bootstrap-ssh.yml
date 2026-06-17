@@ -1,0 +1,24 @@
+name: Bootstrap SSH key
+
+on:
+  workflow_dispatch:
+
+jobs:
+  add-key:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authorize maintenance key
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtemxI4Zvn5H/GITX2hzhMBcrKCc9d2pHjzek2aOp8U denizk@hetzner-b2c"
+            touch ~/.ssh/authorized_keys
+            chmod 600 ~/.ssh/authorized_keys
+            grep -qF "$KEY" ~/.ssh/authorized_keys || echo "$KEY" >> ~/.ssh/authorized_keys
+            echo "Authorized keys now:"
+            cut -d' ' -f3 ~/.ssh/authorized_keys
