@@ -8,6 +8,10 @@ import { connectDatabase } from './config/database.js';
 import { connectRedis } from './config/redis.js';
 import authRoutes from './routes/auth.routes.js';
 import friendRoutes from './routes/friend.routes.js';
+import gameRoutes from './routes/game.routes.js';
+import userRoutes from './routes/user.routes.js';
+import leaderboardRoutes from './routes/leaderboard.routes.js';
+import dailyRoutes from './routes/daily.routes.js';
 import { setupSocket } from './socket/index.js';
 
 const app = express();
@@ -32,6 +36,10 @@ app.get('/api/health', (_req, res) => {
 // REST routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/friends', friendRoutes);
+app.use('/api/v1/games', gameRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/leaderboard', leaderboardRoutes);
+app.use('/api/v1/daily', dailyRoutes);
 
 // Socket.io
 setupSocket(io);

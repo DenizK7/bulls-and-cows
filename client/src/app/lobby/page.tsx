@@ -2,13 +2,18 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useSocket } from "@/hooks/useSocket";
 import { useMusicPlayer } from "@/components/MusicPlayer";
 import { useT } from "@/lib/i18n";
 import { GAME_COLORS } from "@/lib/colors";
+import { isSfxEnabled, setSfxEnabled, playSound } from "@/lib/sound";
+import { RankBadge } from "@/components/RankBadge";
+import { IconTrophy, IconUser, IconUsers, IconCalendar, IconBolt, IconRobot, IconHelp, IconSwords, IconGlobe } from "@/components/Icons";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { AmbientBackground } from "@/components/AmbientBackground";
 import { BrandTitle } from "@/components/BrandTitle";
 import Image from "next/image";
 
@@ -52,12 +57,17 @@ export default function LobbyPage() {
   const { t, lang, setLang: changeLang } = useT();
   const [aiTurnTime, setAiTurnTime] = useState(60000);
   const [colorCount, setColorCount] = useState<number | null>(null);
+  const [blitz, setBlitz] = useState(false);
+  const [dailyPrompt, setDailyPrompt] = useState<{ dateKey: string } | null>(null);
   const [editName, setEditName] = useState("");
   const [nameMsg, setNameMsg] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [setupTag, setSetupTag] = useState(() => String(Math.floor(1000 + Math.random() * 9000)));
   const [profile, setProfile] = useState<{ displayName: string; tag: string } | null>(null);
+  const [sfxOn, setSfxOn] = useState(true);
+
+  useEffect(() => { setSfxOn(isSfxEnabled()); }, []);
 
   const token = (session as { backendToken?: string })?.backendToken;
 
@@ -115,6 +125,24 @@ export default function LobbyPage() {
       })
       .catch(() => { /* server unreachable / transient — ignore */ });
   }, [token]);
+
+  // Daily challenge prompt — show once per day if today's puzzle isn't solved yet
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API}/daily`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || d.solved) return;
+        if (localStorage.getItem(`dailyPrompt:${d.dateKey}`)) return;
+        setDailyPrompt({ dateKey: d.dateKey });
+      })
+      .catch(() => {});
+  }, [token]);
+
+  const dismissDailyPrompt = () => {
+    if (dailyPrompt) localStorage.setItem(`dailyPrompt:${dailyPrompt.dateKey}`, "1");
+    setDailyPrompt(null);
+  };
 
   // Socket events
   useEffect(() => {
@@ -179,11 +207,7 @@ export default function LobbyPage() {
   }, [socket, router]);
 
   if (status === "loading" || status === "unauthenticated") {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   const user = session?.user;
@@ -193,7 +217,7 @@ export default function LobbyPage() {
 
   const handleFindMatch = () => {
     if (matchmaking) { socket?.emit("client:matchmaking:leave"); setMatchmaking(false); }
-    else { socket?.emit("client:matchmaking:join", { colorCount }); setMatchmaking(true); }
+    else { socket?.emit("client:matchmaking:join", { colorCount, blitz: blitz && colorCount == null }); setMatchmaking(true); }
   };
 
   const handleAddFriend = async () => {
@@ -225,6 +249,7 @@ export default function LobbyPage() {
 
   return (
     <div className="flex-1 flex flex-col items-center px-3 sm:px-4 py-4 sm:py-6">
+      <AmbientBackground />
       <div className="relative z-10 w-full max-w-2xl flex flex-col gap-4">
         {/* Compact header */}
         <div className="flex items-center justify-between">
@@ -233,6 +258,14 @@ export default function LobbyPage() {
             <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-online" : "bg-danger"}`} />
             {user?.image && <Image src={user.image} alt="" width={24} height={24} className="rounded-full" />}
             <span className="text-xs text-text-muted">{profile?.displayName || user?.name}<span className="text-text-dim font-mono ml-1">#{profile?.tag || userTag}</span></span>
+            <Link href="/leaderboard" title={t("nav.leaderboard")} aria-label={t("nav.leaderboard")}
+              className="p-1.5 rounded-md hover:bg-bg-elevated text-text-dim hover:text-accent cursor-pointer transition-colors">
+              <IconTrophy className="w-4 h-4" />
+            </Link>
+            <Link href="/profile" title={t("nav.profile")} aria-label={t("nav.profile")}
+              className="p-1.5 rounded-md hover:bg-bg-elevated text-text-dim hover:text-accent cursor-pointer transition-colors">
+              <IconUser className="w-4 h-4" />
+            </Link>
             <div className="relative">
               <button onClick={() => { setSettingsOpen(!settingsOpen); setEditName(profile?.displayName || user?.name || ""); setNameMsg(""); }}
                 className="ml-1 p-1 rounded-md hover:bg-bg-elevated text-text-dim hover:text-text-muted cursor-pointer transition-colors"
@@ -319,6 +352,15 @@ export default function LobbyPage() {
                         </div>
                       </div>
 
+                      {/* Sound Effects */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-muted">{t("lobby.soundEffects")}</span>
+                        <button onClick={() => { const v = !sfxOn; setSfxOn(v); setSfxEnabled(v); if (v) playSound("button"); }}
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium cursor-pointer ${sfxOn ? "bg-accent/20 text-accent" : "bg-bg-elevated text-text-dim"}`}>
+                          {sfxOn ? "On" : "Off"}
+                        </button>
+                      </div>
+
                       <div className="border-t border-border pt-2">
                         <button onClick={() => signOut({ callbackUrl: "/" })}
                           className="w-full py-2 text-xs text-danger hover:bg-danger/10 rounded-lg cursor-pointer transition-colors font-medium">
@@ -334,14 +376,14 @@ export default function LobbyPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-bg-card rounded-lg p-0.5 border border-border text-sm">
+        <div className="kit-panel-sm p-1 flex text-sm">
           {[
             { key: "play" as const, label: t("lobby.play") },
             { key: "friends" as const, label: `${t("lobby.friends")}${friends.length ? ` (${friends.length})` : ""}` },
           ].map((tb) => (
             <button key={tb.key} onClick={() => setTab(tb.key)}
-              className={`flex-1 py-2 rounded-md font-medium transition-all cursor-pointer ${
-                tab === tb.key ? "bg-bg-elevated text-text shadow-sm" : "text-text-muted"
+              className={`flex-1 py-2 rounded-md font-bold transition-all cursor-pointer ${
+                tab === tb.key ? "bg-[#2a1d16] text-[#f0d9c0]" : "text-[#2a1d16]/55"
               }`}>{tb.label}</button>
           ))}
         </div>
@@ -349,138 +391,129 @@ export default function LobbyPage() {
         <AnimatePresence mode="wait">
           {tab === "play" ? (
             <motion.div key="play" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex flex-col gap-3">
-              {/* Game Mode Selector — applies to all game types below */}
-              <div className="bg-bg-card border border-border rounded-xl p-4">
-                <h2 className="text-sm font-semibold mb-3">Oyun Modu</h2>
-                <div className="flex gap-2 mb-3">
+              {/* Mode — compact segmented control shared by Quick Play & AI */}
+              <div className="kit-panel p-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   <button onClick={() => setColorCount(null)}
-                    className={`flex-1 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${
-                      colorCount == null ? "border-accent bg-accent/10 text-accent" : "border-border text-text-muted hover:border-border-light"
+                    className={`py-2 rounded-lg border-2 text-sm font-bold cursor-pointer transition-all ${
+                      colorCount == null ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
                     }`}>
-                    <div className="text-sm font-bold">Sayılar</div>
-                    <div className="text-[10px] opacity-70">0-9 rakamlar</div>
+                    {t("lobby.modeNumbers")}
                   </button>
-                  <button onClick={() => setColorCount(6)}
-                    className={`flex-1 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${
-                      colorCount != null ? "border-accent bg-accent/10 text-accent" : "border-border text-text-muted hover:border-border-light"
+                  <button onClick={() => setColorCount(colorCount == null ? 6 : colorCount)}
+                    className={`py-2 rounded-lg border-2 text-sm font-bold cursor-pointer transition-all ${
+                      colorCount != null ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
                     }`}>
-                    <div className="text-sm font-bold">Renkler</div>
-                    <div className="text-[10px] opacity-70">renkli daireler</div>
+                    {t("lobby.modeColors")}
                   </button>
                 </div>
                 {colorCount != null && (
-                  <>
-                    <div className="text-[10px] text-text-dim mb-1.5 text-center">Renk sayısı</div>
-                    <div className="flex gap-1.5 mb-2">
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] shrink-0 text-[#2a1d16]/70">{t("lobby.colorCount")}</span>
+                    <div className="flex gap-1 flex-1">
                       {[5, 6, 7, 8].map((n) => (
                         <button key={n} onClick={() => setColorCount(n)}
-                          className={`flex-1 py-1.5 rounded-lg border text-sm font-bold cursor-pointer transition-all ${
-                            colorCount === n ? "border-accent/40 bg-accent/10 text-accent" : "border-border text-text-dim hover:border-border-light"
+                          className={`flex-1 py-1 rounded-md border-2 text-xs font-bold cursor-pointer transition-all ${
+                            colorCount === n ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
                           }`}>
                           {n}
                         </button>
                       ))}
                     </div>
-                    <div className="flex gap-1 justify-center mt-2">
+                    <div className="flex gap-0.5 shrink-0">
                       {GAME_COLORS.slice(0, colorCount).map((c, i) => (
-                        <span key={i} className="w-5 h-5 rounded-full" style={{ background: c, boxShadow: `0 0 6px ${c}50` }} />
+                        <span key={i} className="w-3.5 h-3.5 rounded-full border border-[#2a1d16]/40" style={{ background: c }} />
                       ))}
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 
-              {/* AI */}
-              <div className="bg-bg-card border border-border rounded-xl p-4">
-                <h2 className="text-sm font-semibold mb-3">{t("lobby.playAI")}</h2>
-                {/* Turn time selector */}
-                <div className="flex gap-1.5 mb-3">
-                  {[
-                    { ms: 30000, label: "30s", desc: t("invite.fast") },
-                    { ms: 60000, label: "60s", desc: t("invite.normal") },
-                    { ms: 120000, label: "2m", desc: t("invite.chill") },
-                  ].map((opt) => (
-                    <button key={opt.ms} onClick={() => setAiTurnTime(opt.ms)}
-                      className={`flex-1 py-1.5 rounded-lg border text-center cursor-pointer transition-all ${
-                        aiTurnTime === opt.ms ? "border-accent/40 bg-accent/10 text-accent" : "border-border text-text-dim hover:border-border-light"
-                      }`}>
-                      <div className="text-xs font-bold">{opt.label}</div>
-                      <div className="text-[9px] opacity-70">{opt.desc}</div>
-                    </button>
-                  ))}
+              {/* HERO: Quick Play (online matchmaking) */}
+              <div className="kit-panel hero-glow p-2">
+                <div className="flex items-center gap-2 mb-3 px-1" style={{ color: "#2a1d16" }}>
+                  <IconGlobe className="w-4 h-4" />
+                  <h2 className="text-sm font-bold">{t("lobby.playOnline")}</h2>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                {colorCount == null && !matchmaking && (
+                  <div className="grid grid-cols-2 gap-1.5 mb-3">
+                    <button onClick={() => setBlitz(false)}
+                      className={`flex items-center justify-center gap-1.5 py-2 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                        !blitz ? "border-[#2a1d16] bg-[#2a1d16]/15 text-[#2a1d16]" : "border-[#2a1d16]/30 text-[#2a1d16]/55"
+                      }`}>
+                      {t("lobby.standard")} <span className="opacity-60 font-normal">60s</span>
+                    </button>
+                    <button onClick={() => setBlitz(true)}
+                      className={`flex items-center justify-center gap-1.5 py-2 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                        blitz ? "border-[#2a1d16] bg-[#2a1d16]/15 text-[#2a1d16]" : "border-[#2a1d16]/30 text-[#2a1d16]/55"
+                      }`}>
+                      <IconBolt className="w-3.5 h-3.5" /> {t("lobby.blitz")} <span className="opacity-60 font-normal">15s</span>
+                    </button>
+                  </div>
+                )}
+                <button onClick={handleFindMatch} disabled={!connected}
+                  className="kit-btn w-full py-3.5 font-bold text-base cursor-pointer flex items-center justify-center gap-2">
+                  {matchmaking ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      {t("lobby.searching")}
+                    </>
+                  ) : (
+                    <>
+                      <IconSwords className="w-5 h-5" />
+                      {t("lobby.findMatch")}
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* vs AI */}
+              <div className="kit-panel p-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <IconRobot className="w-4 h-4" />
+                  <h2 className="text-sm font-bold">{t("lobby.playAI")}</h2>
+                  <div className="ml-auto flex gap-1">
+                    {[{ ms: 30000, l: "30s" }, { ms: 60000, l: "60s" }, { ms: 120000, l: "2m" }].map((o) => (
+                      <button key={o.ms} onClick={() => setAiTurnTime(o.ms)}
+                        className={`px-2 py-0.5 rounded-md border-2 text-[10px] font-bold cursor-pointer transition-all ${
+                          aiTurnTime === o.ms ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
+                        }`}>{o.l}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2.5">
                   {[
-                    { label: t("difficulty.easy"), difficulty: "easy", color: "text-success border-success/20 bg-success/5" },
-                    { label: t("difficulty.medium"), difficulty: "medium", color: "text-warning border-warning/20 bg-warning/5" },
-                    { label: t("difficulty.hard"), difficulty: "hard", color: "text-danger border-danger/20 bg-danger/5" },
+                    { label: t("difficulty.easy"), difficulty: "easy", bg: "bg-success", edge: "#4e7a4e" },
+                    { label: t("difficulty.medium"), difficulty: "medium", bg: "bg-warning", edge: "#8a763e" },
+                    { label: t("difficulty.hard"), difficulty: "hard", bg: "bg-danger", edge: "#7a3b3b" },
                   ].map((m) => (
                     <button key={m.difficulty} onClick={() => handlePlayAI(m.difficulty)} disabled={!connected}
-                      className={`btn-3d border rounded-lg py-2.5 text-center font-bold text-sm cursor-pointer disabled:opacity-40 ${m.color}`}>
+                      style={{ "--edge": m.edge } as CSSProperties}
+                      className={`btn-juicy rounded-xl py-3 text-center font-bold text-sm text-bg cursor-pointer ${m.bg}`}>
                       {m.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* PvP */}
-              <div className="bg-bg-card border border-border rounded-xl p-4">
-                <h2 className="text-sm font-semibold mb-2">{t("lobby.playOnline")}</h2>
-                <button onClick={handleFindMatch} disabled={!connected}
-                  className={`btn-3d w-full py-3 rounded-lg font-semibold text-sm cursor-pointer disabled:opacity-40 ${
-                    matchmaking ? "bg-danger/15 border border-danger text-danger" : "bg-accent text-bg"
-                  }`}>
-                  {matchmaking ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="w-3.5 h-3.5 border-2 border-danger border-t-transparent rounded-full animate-spin" />
-                      {t("lobby.searching")}
-                    </span>
-                  ) : t("lobby.findMatch")}
+              {/* Secondary: Daily / Friends / How-to */}
+              <div className="grid grid-cols-3 gap-2">
+                <Link href="/daily"
+                  className="lift kit-panel p-2 flex flex-col items-center gap-1.5 cursor-pointer text-center">
+                  <IconCalendar className="w-5 h-5 text-accent" />
+                  <span className="text-xs font-medium leading-tight">{t("lobby.dailyShort")}</span>
+                </Link>
+                <button onClick={() => setTab("friends")}
+                  className="lift kit-panel p-2 flex flex-col items-center gap-1.5 cursor-pointer text-center">
+                  <IconUsers className="w-5 h-5 text-accent" />
+                  <span className="text-xs font-medium leading-tight">{t("lobby.friends")}{friends.length ? ` (${friends.length})` : ""}</span>
                 </button>
+                <Link href="/how-to-play"
+                  className="lift kit-panel p-2 flex flex-col items-center gap-1.5 cursor-pointer text-center">
+                  <IconHelp className="w-5 h-5 text-accent" />
+                  <span className="text-xs font-medium leading-tight">{t("lobby.howToPlay")}</span>
+                </Link>
               </div>
-
-              {/* Play with Friends */}
-              <div className="bg-bg-card border border-border rounded-xl p-4">
-                <h2 className="text-sm font-semibold mb-2">{t("lobby.playFriends")}</h2>
-                {friends.length === 0 ? (
-                  <p className="text-text-dim text-xs">{t("lobby.noFriends")}</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {friends.map((f) => {
-                      const isOnline = onlineUsers.has(f._id);
-                      const isInGame = (f as any).inGame;
-                      return (
-                        <button key={f._id}
-                          onClick={() => isOnline && !isInGame && setInviteModal({ friendId: f._id, friendName: f.displayName })}
-                          disabled={!isOnline || isInGame}
-                          className={`flex items-center gap-1.5 bg-bg-elevated border rounded-lg px-3 py-1.5 text-xs transition-all ${
-                            isOnline && !isInGame ? "border-border hover:border-accent/30 cursor-pointer" : "border-border/50 opacity-40 cursor-not-allowed"
-                          }`}>
-                          <div className="relative">
-                            {f.avatarUrl ? <img src={f.avatarUrl} alt="" className="w-5 h-5 rounded-full" /> :
-                              <div className="w-5 h-5 bg-accent/20 rounded-full flex items-center justify-center text-[8px] font-bold text-accent">{f.displayName[0]}</div>}
-                            <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-bg-elevated ${isOnline ? (isInGame ? "bg-warning" : "bg-online") : "bg-text-dim"}`} />
-                          </div>
-                          <span className="font-medium">{f.displayName}</span>
-                          {!isOnline && <span className="text-[9px] text-text-dim">{t("lobby.offline")}</span>}
-                          {isOnline && isInGame && <span className="text-[9px] text-warning">{t("lobby.inGame")}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Tutorial */}
-              <Link href="/how-to-play">
-                <div className="bg-bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:border-border-light cursor-pointer transition-all">
-                  <div>
-                    <h2 className="text-sm font-semibold">{t("lobby.howToPlay")}</h2>
-                    <p className="text-text-dim text-xs">{t("lobby.howToPlayDesc")}</p>
-                  </div>
-                  <span className="text-text-dim text-lg">&rarr;</span>
-                </div>
-              </Link>
             </motion.div>
           ) : (
             <motion.div key="friends" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-col gap-4">
@@ -604,7 +637,7 @@ export default function LobbyPage() {
                           </div>
                           <div>
                             <div className="text-sm font-medium">{f.displayName}<span className="text-text-dim font-mono text-xs ml-1">#{f.tag}</span></div>
-                            <div className="text-[10px] text-text-dim">ELO {f.stats?.eloRating || 1200}</div>
+                            <div className="mt-0.5"><RankBadge elo={f.stats?.eloRating || 1200} size="sm" /></div>
                           </div>
                         </div>
                         <button onClick={() => setInviteModal({ friendId: f._id, friendName: f.displayName })}
@@ -700,6 +733,34 @@ export default function LobbyPage() {
         )}
       </AnimatePresence>
 
+      {/* Daily challenge prompt */}
+      <AnimatePresence>
+        {dailyPrompt && !showSetup && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              className="bg-bg-card border border-accent/30 rounded-2xl p-6 max-w-xs w-full text-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-accent/15 flex items-center justify-center text-accent">
+                <IconCalendar className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-bold mb-1">{t("daily.promptTitle")}</h3>
+              <p className="text-text-muted text-sm mb-5">{t("daily.promptDesc")}</p>
+              <div className="flex gap-2">
+                <button onClick={dismissDailyPrompt}
+                  className="flex-1 py-2.5 bg-bg-elevated border border-border text-text font-medium rounded-xl cursor-pointer hover:bg-bg-hover">
+                  {t("daily.later")}
+                </button>
+                <button onClick={() => { dismissDailyPrompt(); router.push("/daily"); }}
+                  style={{ "--edge": "#7a5638" } as CSSProperties}
+                  className="btn-juicy flex-1 py-2.5 bg-accent text-bg font-semibold rounded-xl cursor-pointer">
+                  {t("daily.play")}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Invite Modal - select turn time and send */}
       <AnimatePresence>
         {inviteModal && (
@@ -779,7 +840,7 @@ export default function LobbyPage() {
               <div className="flex items-center justify-center gap-1.5 mb-5">
                 {pendingInvite.colorCount != null ? (
                   <>
-                    <span className="text-text-dim text-xs">{pendingInvite.colorCount} renk</span>
+                    <span className="text-text-dim text-xs">{pendingInvite.colorCount} {t("lobby.colorsUnit")}</span>
                     <div className="flex gap-0.5">
                       {GAME_COLORS.slice(0, pendingInvite.colorCount).map((c, i) => (
                         <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />
@@ -787,7 +848,7 @@ export default function LobbyPage() {
                     </div>
                   </>
                 ) : (
-                  <span className="text-text-dim text-xs">Sayılar 0-9</span>
+                  <span className="text-text-dim text-xs">{t("lobby.numbersRange")}</span>
                 )}
               </div>
               <div className="flex gap-2">

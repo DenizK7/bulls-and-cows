@@ -30,6 +30,8 @@ interface GameState {
   } | null;
   mySecret: string | null;
   colorCount: number | null;
+  rematchRequestedBy: string | null; // opponent name who asked for a rematch
+  rematchGameId: string | null; // new game id to navigate to
 }
 
 type Action =
@@ -39,6 +41,8 @@ type Action =
   | { type: "TURN"; payload: { turn: string; deadline: number } }
   | { type: "GUESS_RESULT"; payload: { role: string; guess: string; bulls: number; cows: number } }
   | { type: "GAME_OVER"; payload: Record<string, unknown> }
+  | { type: "REMATCH_REQUESTED"; payload: { fromName: string } }
+  | { type: "REMATCH_START"; payload: { gameId: string } }
   | { type: "RESET" };
 
 const initialState: GameState = {
@@ -56,6 +60,8 @@ const initialState: GameState = {
   result: null,
   mySecret: null,
   colorCount: null,
+  rematchRequestedBy: null,
+  rematchGameId: null,
 };
 
 function reducer(state: GameState, action: Action): GameState {
@@ -129,6 +135,10 @@ function reducer(state: GameState, action: Action): GameState {
         turnDeadline: null,
         result: action.payload as GameState["result"],
       };
+    case "REMATCH_REQUESTED":
+      return { ...state, rematchRequestedBy: action.payload.fromName };
+    case "REMATCH_START":
+      return { ...state, rematchGameId: action.payload.gameId };
     case "RESET":
       return initialState;
     default:
@@ -149,6 +159,8 @@ export function useGame(socket: Socket | null, autoJoinGameId?: string) {
       "server:game:turn": (data) => dispatch({ type: "TURN", payload: data as { turn: string; deadline: number } }),
       "server:game:guess-result": (data) => dispatch({ type: "GUESS_RESULT", payload: data as { role: string; guess: string; bulls: number; cows: number } }),
       "server:game:over": (data) => dispatch({ type: "GAME_OVER", payload: data as Record<string, unknown> }),
+      "server:game:rematch-requested": (data) => dispatch({ type: "REMATCH_REQUESTED", payload: data as { fromName: string } }),
+      "server:game:rematch-start": (data) => dispatch({ type: "REMATCH_START", payload: data as { gameId: string } }),
     };
 
     for (const [event, handler] of Object.entries(handlers)) {
@@ -190,7 +202,17 @@ export function useGame(socket: Socket | null, autoJoinGameId?: string) {
 
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
 
+  const requestRematch = useCallback(() => {
+    if (!state.gameId) return;
+    socket?.emit("client:game:rematch", { gameId: state.gameId });
+  }, [socket, state.gameId]);
+
+  const acceptRematch = useCallback(() => {
+    if (!state.gameId) return;
+    socket?.emit("client:game:rematch-accept", { gameId: state.gameId });
+  }, [socket, state.gameId]);
+
   const isMyTurn = state.currentTurn === state.myRole;
 
-  return { ...state, isMyTurn, setSecret, submitGuess, quitGame, reset };
+  return { ...state, isMyTurn, setSecret, submitGuess, quitGame, reset, requestRematch, acceptRematch };
 }

@@ -1,7 +1,17 @@
 import type { AuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+import CredentialsProvider from 'next-auth/providers/credentials';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+
+// DEV ONLY: one-click local login that bypasses Google. Gated on NODE_ENV so it is
+// NEVER registered in production builds (Hetzner runs `next start` -> production).
+const DEV_LOGIN_ENABLED = process.env.NODE_ENV !== 'production';
+// Two distinct local accounts so PvP/rematch can be tested across two windows.
+const DEV_USERS: Record<string, { id: string; email: string; name: string; image: string }> = {
+  '1': { id: 'dev-local-1', email: 'deniz@dev.local', name: 'Deniz', image: '' },
+  '2': { id: 'dev-local-2', email: 'rakip@dev.local', name: 'Rakip', image: '' },
+};
 
 // Mint a fresh backend JWT from our API and store it on the NextAuth token.
 async function refreshBackendToken(token: Record<string, unknown>) {
@@ -40,19 +50,41 @@ function backendTokenExpiring(backendToken: unknown): boolean {
   }
 }
 
-export const authOptions: AuthOptions = {
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+const providers: AuthOptions['providers'] = [
+  GoogleProvider({
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  }),
+];
+
+if (DEV_LOGIN_ENABLED) {
+  providers.push(
+    CredentialsProvider({
+      id: 'dev',
+      name: 'Dev Login',
+      credentials: { who: { label: 'who', type: 'text' } },
+      async authorize(credentials) {
+        return DEV_USERS[credentials?.who === '2' ? '2' : '1'];
+      },
     }),
-  ],
+  );
+}
+
+export const authOptions: AuthOptions = {
+  providers,
   callbacks: {
-    async jwt({ token, account, profile }) {
-      // Capture Google identity on the initial sign-in.
-      if (account && profile) {
-        token.googleId = account.providerAccountId;
-        token.picture = (profile as { picture?: string }).picture;
+    async jwt({ token, account, profile, user }) {
+      // Capture identity on the initial sign-in.
+      if (account) {
+        if (account.provider === 'google' && profile) {
+          token.googleId = account.providerAccountId;
+          token.picture = (profile as { picture?: string }).picture;
+        } else if (account.provider === 'dev') {
+          token.googleId = (user?.id as string) ?? DEV_USERS['1'].id;
+          token.picture = '';
+          if (user?.email) token.email = user.email;
+          if (user?.name) token.name = user.name;
+        }
       }
 
       // Mint/refresh the backend JWT before it lapses. Runs on sign-in (token

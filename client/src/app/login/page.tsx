@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useT } from "@/lib/i18n";
 import { BrandTitle } from "@/components/BrandTitle";
+import { Mascot } from "@/components/Mascot";
 
 export default function LoginPage() {
   const { status } = useSession();
@@ -42,8 +43,11 @@ export default function LoginPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 glass-card rounded-2xl p-8 sm:p-10 max-w-sm w-full text-center"
+        className="relative z-10 kit-panel p-5 sm:p-7 max-w-sm w-full text-center"
       >
+        <div className="flex justify-center mb-2">
+          <Mascot size={96} />
+        </div>
         <div className="mb-4">
           <BrandTitle size="md" />
         </div>
@@ -74,6 +78,23 @@ export default function LoginPage() {
           </svg>
           {t("login.continueGoogle")}
         </button>
+
+        {process.env.NODE_ENV !== "production" && (
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => signIn("dev", { who: "1", callbackUrl: "/lobby" })}
+              className="flex-1 px-3 py-2.5 bg-bg-elevated border border-border text-text-muted font-medium rounded-xl cursor-pointer hover:bg-bg-hover text-sm"
+            >
+              🔓 Dev: Deniz
+            </button>
+            <button
+              onClick={() => signIn("dev", { who: "2", callbackUrl: "/lobby" })}
+              className="flex-1 px-3 py-2.5 bg-bg-elevated border border-border text-text-muted font-medium rounded-xl cursor-pointer hover:bg-bg-hover text-sm"
+            >
+              🔓 Dev: Rakip
+            </button>
+          </div>
+        )}
 
         <p className="text-text-dim text-xs mt-6">
           {t("login.noAccount")}

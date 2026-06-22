@@ -10,6 +10,10 @@ import { useGame } from "@/hooks/useGame";
 import { useT, t } from "@/lib/i18n";
 import { digitToColor } from "@/lib/colors";
 import { BrandTitle } from "@/components/BrandTitle";
+import { playSound } from "@/lib/sound";
+import { Confetti } from "@/components/Confetti";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { Mascot } from "@/components/Mascot";
 
 function DigitPiece({ digit, size = "md", state }: {
   digit: string;
@@ -358,12 +362,14 @@ function GuessRow({
   cows,
   index,
   colorCount,
+  isNewest,
 }: {
   guess: string;
   bulls: number;
   cows: number;
   index: number;
   colorCount?: number | null;
+  isNewest?: boolean;
 }) {
   const isColorMode = colorCount != null;
   return (
@@ -376,14 +382,14 @@ function GuessRow({
       <div className="flex items-center gap-1">
         <span className="text-text-dim text-[9px] font-pixel-mono w-3 text-right shrink-0">{index + 1}</span>
         {guess.split("").map((d, i) => (
-          <div key={i} className="w-7 h-7 bg-bg-elevated rounded flex items-center justify-center font-pixel-mono text-xs font-bold text-text">
+          <div key={i} className={`w-7 h-7 bg-bg-elevated rounded flex items-center justify-center font-pixel-mono text-xs font-bold text-text ${isNewest ? "animate-pop" : ""}`}>
             {isColorMode ? <DigitPiece digit={d} size="sm" /> : d}
           </div>
         ))}
       </div>
       <div className="flex items-center gap-1 ml-4">
-        {Array.from({ length: bulls }).map((_, i) => <span key={`b${i}`} className="w-2.5 h-2.5 rounded-full bg-bull inline-block" />)}
-        {Array.from({ length: cows }).map((_, i) => <span key={`c${i}`} className="w-2.5 h-2.5 rounded-full border-2 border-cow inline-block" />)}
+        {Array.from({ length: bulls }).map((_, i) => <span key={`b${i}`} className={`w-2.5 h-2.5 rounded-full bg-bull inline-block ${isNewest ? "flash-bull" : ""}`} />)}
+        {Array.from({ length: cows }).map((_, i) => <span key={`c${i}`} className={`w-2.5 h-2.5 rounded-full border-2 border-cow inline-block ${isNewest ? "flash-cow" : ""}`} />)}
         {bulls === 0 && cows === 0 && <span className="text-text-dim text-[10px]">--</span>}
       </div>
     </motion.div>
@@ -453,7 +459,7 @@ function PlayerPanel({
         ) : (
           <div className="flex flex-col gap-1">
             {guesses.map((g, i) => (
-              <GuessRow key={i} index={i} guess={g.guess} bulls={g.bulls} cows={g.cows} colorCount={colorCount} />
+              <GuessRow key={i} index={i} guess={g.guess} bulls={g.bulls} cows={g.cows} colorCount={colorCount} isNewest={i === guesses.length - 1} />
             ))}
           </div>
         )}
@@ -698,6 +704,7 @@ export default function GamePage() {
   const game = useGame(socket, gameId);
   const [notepadOpen, setNotepadOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
+  const [rematchSent, setRematchSent] = useState(false);
   const [floatingEmojis, setFloatingEmojis] = useState<{ emoji: string; id: number; side: "left" | "right" }[]>([]);
   const emojiIdRef = useRef(0);
   const music = useMusicPlayer();
@@ -732,12 +739,63 @@ export default function GamePage() {
   const isWinner = game.result?.winnerId === userId;
   const isDraw = game.result?.reason === "draw";
 
+  // SFX cues — refs prevent replaying on unrelated re-renders
+  const prevMyGuessCount = useRef(0);
+  useEffect(() => {
+    const n = game.myGuesses.length;
+    if (n > prevMyGuessCount.current) {
+      const last = game.myGuesses[n - 1];
+      if (last && last.bulls < 4) {
+        playSound(last.bulls > 0 ? "bull" : last.cows > 0 ? "cow" : "miss");
+      }
+    }
+    prevMyGuessCount.current = n;
+  }, [game.myGuesses]);
+
+  const prevMyTurn = useRef(false);
+  useEffect(() => {
+    const myTurnNow = game.status === "in_progress" && game.isMyTurn;
+    if (myTurnNow && !prevMyTurn.current) playSound("turn");
+    prevMyTurn.current = myTurnNow;
+  }, [game.isMyTurn, game.status]);
+
+  const playedEndRef = useRef(false);
+  useEffect(() => {
+    if (game.status === "completed" && game.result && !playedEndRef.current) {
+      playedEndRef.current = true;
+      playSound(isWinner && !isDraw ? "win" : "lose");
+    }
+  }, [game.status, game.result, isWinner, isDraw]);
+
+  // Reset per-game SFX guards when navigating to a new game id (e.g. rematch,
+  // which reuses this route without remounting).
+  useEffect(() => {
+    prevMyGuessCount.current = 0;
+    prevMyTurn.current = false;
+    playedEndRef.current = false;
+    setRematchSent(false);
+  }, [gameId]);
+
+  // Rematch accepted/created → jump to the fresh game
+  useEffect(() => {
+    if (game.rematchGameId) {
+      const newId = game.rematchGameId;
+      setRematchSent(false);
+      game.reset();
+      router.push(`/game/${newId}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.rematchGameId]);
+
+  const handleRematch = () => {
+    playSound("button");
+    game.requestRematch();
+    // AI recreates instantly (navigates via rematchGameId); PvP waits for the opponent
+    if (game.opponent?.userId !== "AI") setRematchSent(true);
+  };
+
   if (!game.gameId || !game.opponent) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -957,10 +1015,15 @@ export default function GamePage() {
       {game.status === "completed" && game.result && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           className="fixed inset-0 z-50 bg-bg overflow-y-auto">
+          {isWinner && !isDraw && <Confetti />}
           <div className="max-w-2xl mx-auto px-4 py-6">
             {/* Result header */}
             <motion.div initial={{ y: -20 }} animate={{ y: 0 }} className="text-center mb-6">
-              <div className="text-4xl mb-2">{isDraw ? "🤝" : isWinner ? "🎉" : "😤"}</div>
+              {isDraw ? (
+                <div className="text-4xl mb-2">🤝</div>
+              ) : (
+                <div className="flex justify-center mb-2"><Mascot size={92} mood={isWinner ? "win" : "lose"} /></div>
+              )}
               <h2 className="text-2xl font-bold">{isDraw ? t("game.draw") : isWinner ? t("game.victory") : t("game.defeat")}</h2>
               <p className="text-text-muted text-sm mt-1">
                 {game.result.reason === "opponent_quit" ? t("game.opponentQuit")
@@ -1072,9 +1135,31 @@ export default function GamePage() {
             </div>
 
             {/* Actions */}
+            {game.rematchRequestedBy && (
+              <div className="mb-3 bg-accent/10 border border-accent/30 rounded-xl p-3 text-center">
+                <p className="text-sm mb-2"><strong className="text-accent">{game.rematchRequestedBy}</strong> {t("game.wantsRematch")}</p>
+                <button onClick={() => { playSound("button"); game.acceptRematch(); }}
+                  className="kit-btn w-full py-2.5 font-semibold cursor-pointer">
+                  {t("game.acceptRematch")}
+                </button>
+              </div>
+            )}
             <div className="flex gap-3">
+              {!game.rematchRequestedBy && (
+                rematchSent ? (
+                  <div className="flex-1 py-3 bg-bg-elevated border border-border text-text-muted font-medium rounded-xl flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
+                    {t("game.rematchWaiting")}
+                  </div>
+                ) : (
+                  <button onClick={handleRematch}
+                    className="kit-btn flex-1 py-3 font-semibold cursor-pointer">
+                    {t("game.rematch")}
+                  </button>
+                )
+              )}
               <button onClick={() => { game.reset(); router.push("/lobby"); }}
-                className="flex-1 py-3 bg-accent text-bg font-semibold rounded-xl hover:brightness-110 transition-all cursor-pointer active:scale-[0.98]">
+                className="flex-1 py-3 bg-bg-elevated border border-border text-text font-medium rounded-xl hover:bg-bg-hover transition-all cursor-pointer active:scale-[0.98]">
                 {t("game.backToLobby")}
               </button>
             </div>

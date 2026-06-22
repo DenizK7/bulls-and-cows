@@ -70,32 +70,121 @@ body {
   background: var(--color-border-light);
 }
 
-/* 3D button — gradient top-highlight + shadow for depth, sinks on press */
+/* Chunky pixel button — hard offset "base" shadow, lifts on hover, presses down */
 .btn-3d {
-  background-image: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.10) 0%,
-    transparent 45%,
-    rgba(0, 0, 0, 0.12) 100%
-  );
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 50%);
   box-shadow:
-    0 3px 6px rgba(0, 0, 0, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  transition: transform 0.12s, box-shadow 0.12s;
+    0 4px 0 0 rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
 }
-.btn-3d:hover {
+.btn-3d:hover:not(:disabled) {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
   box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.4),
-    0 2px 3px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    0 5px 0 0 rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
-.btn-3d:active {
-  transform: translateY(2px);
+.btn-3d:active:not(:disabled) {
+  transform: translateY(3px);
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 1px 0 0 rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
+.btn-3d:disabled {
+  box-shadow: 0 4px 0 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Pixel loading bar — segment cells sweep a fill */
+@keyframes cell-fill {
+  0%, 100% { background: var(--color-bg-elevated); }
+  50% { background: var(--color-accent); box-shadow: 0 0 6px var(--color-accent-glow); }
+}
+
+/* Juicy candy-style button — glossy gradient, bevel highlights, hard colored base edge.
+   Set --edge (a darker shade of the button color) per-button for the 3D base. */
+.btn-juicy {
+  border: none;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0.05) 42%, rgba(0, 0, 0, 0.16));
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.22),
+    0 5px 0 0 var(--edge, rgba(0, 0, 0, 0.5)),
+    0 10px 16px -6px rgba(0, 0, 0, 0.55);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
+}
+.btn-juicy:hover:not(:disabled) { filter: brightness(1.08) saturate(1.05); transform: translateY(-1px); }
+.btn-juicy:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 1px 0 0 var(--edge, rgba(0, 0, 0, 0.5)),
+    0 3px 6px -3px rgba(0, 0, 0, 0.5);
+}
+.btn-juicy:disabled {
+  opacity: 0.5;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.2), 0 4px 0 0 var(--edge, rgba(0, 0, 0, 0.4));
+}
+
+/* Candy panel — rounded, soft gloss top, deep drop shadow */
+.panel {
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 10px 26px -14px rgba(0, 0, 0, 0.65);
+}
+
+/* Breathing glow for the primary hero card */
+@keyframes hero-glow {
+  0%, 100% { box-shadow: 0 0 0 1px #c2916a26, 0 10px 34px -16px #c2916a40; }
+  50% { box-shadow: 0 0 0 1px #c2916a4d, 0 14px 44px -12px #c2916a55; }
+}
+.hero-glow { animation: hero-glow 3.6s ease-in-out infinite; }
+
+/* Card hover lift */
+.lift {
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.lift:hover { transform: translateY(-2px); }
+
+/* Twinkling pixel stars */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.7; }
+}
+
+/* === GUI kit (sliced sprites, 9-slice via border-image) === */
+.kit-panel {
+  border-style: solid;
+  border-width: 16px;
+  border-image: url("/art/ui/panel-honey.png") 20 fill stretch;
+  color: #2a1d16; /* dark text on the light honey panel */
+}
+.kit-panel-sm {
+  border-style: solid;
+  border-width: 9px;
+  border-image: url("/art/ui/panel-honey.png") 20 fill stretch;
+  color: #2a1d16;
+}
+.kit-btn {
+  border-style: solid;
+  border-width: 9px 16px;
+  border-image: url("/art/ui/btn-navy.png") 9 16 fill stretch;
+  color: #ede5d8;
+  transition: transform 0.08s ease, filter 0.12s ease;
+}
+.kit-btn:hover:not(:disabled) { filter: brightness(1.12); }
+.kit-btn:active:not(:disabled) { transform: translateY(2px); }
+.kit-btn:disabled { opacity: 0.5; }
+
+/* Auto-darken light theme text/icons inside the light honey kit panels */
+.kit-panel .text-text, .kit-panel-sm .text-text { color: #2a1d16; }
+.kit-panel .text-text-muted, .kit-panel-sm .text-text-muted { color: #5a4636; }
+.kit-panel .text-text-dim, .kit-panel-sm .text-text-dim { color: #7a6450; }
+.kit-panel .text-accent, .kit-panel-sm .text-accent { color: #8a5320; }
+/* a dark "ink" helper for kit panels */
+.kit-ink { color: #2a1d16; }
+.kit-ink-dim { color: #6a5440; }
 
 /* Glass card effect — subtle frosted glass for cards */
 .glass-card {
@@ -165,4 +254,17 @@ body {
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+/* One-shot feedback (reuses the keyframes above) for the newest guess row */
+.animate-pop {
+  animation: bounce-in 0.35s ease-out;
+}
+
+.flash-bull {
+  animation: pulse-bull 0.6s ease-out 2;
+}
+
+.flash-cow {
+  animation: pulse-cow 0.6s ease-out 2;
 }

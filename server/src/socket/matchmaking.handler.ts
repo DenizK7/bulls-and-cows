@@ -5,22 +5,30 @@ import { Game } from '../models/Game.model.js';
 import { User } from '../models/User.model.js';
 
 const MATCH_INTERVAL_MS = 2000;
+const BLITZ_TURN_TIME_MS = 15_000; // fast turn timer for blitz games
+const STANDARD_TURN_TIME_MS = 60_000;
 let matchmakingTimer: ReturnType<typeof setInterval> | null = null;
 
+// Blitz only segments the digits pool (keep fragmentation low for a small player base).
 const QUEUE_KEYS = [
   'matchmaking:queue:digits',
+  'matchmaking:queue:digits:blitz',
   'matchmaking:queue:colors:5',
   'matchmaking:queue:colors:6',
   'matchmaking:queue:colors:7',
   'matchmaking:queue:colors:8',
 ];
 
-function queueKey(colorCount: number | null): string {
-  return colorCount == null ? 'matchmaking:queue:digits' : `matchmaking:queue:colors:${colorCount}`;
+function queueKey(colorCount: number | null, blitz: boolean): string {
+  if (colorCount == null) return blitz ? 'matchmaking:queue:digits:blitz' : 'matchmaking:queue:digits';
+  return `matchmaking:queue:colors:${colorCount}`;
+}
+
+function isBlitzKey(key: string): boolean {
+  return key.endsWith(':blitz');
 }
 
 function colorCountFromKey(key: string): number | null {
-  if (key === 'matchmaking:queue:digits') return null;
   const m = key.match(/colors:(\d+)$/);
   return m ? parseInt(m[1], 10) : null;
 }
@@ -40,6 +48,7 @@ async function tryMatchInQueue(io: Server, key: string) {
   const userId1 = players[0];
   const userId2 = players[2];
   const colorCount = colorCountFromKey(key);
+  const turnTimeMs = isBlitzKey(key) ? BLITZ_TURN_TIME_MS : STANDARD_TURN_TIME_MS;
 
   const [user1, user2] = await Promise.all([
     User.findById(userId1).lean(),
@@ -53,6 +62,7 @@ async function tryMatchInQueue(io: Server, key: string) {
     matchType: 'ranked',
     status: 'waiting_secrets',
     colorCount,
+    turnTimeMs,
     players: {
       host: { userId: userId1, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
       challenger: { userId: userId2, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
@@ -103,10 +113,12 @@ async function removeFromAllQueues(userId: string) {
 export function handleMatchmakingEvents(io: Server, socket: AuthenticatedSocket): void {
   startMatchmakingLoop(io);
 
-  socket.on('client:matchmaking:join', async ({ colorCount }: { colorCount?: number | null } = {}) => {
+  socket.on('client:matchmaking:join', async ({ colorCount, blitz }: { colorCount?: number | null; blitz?: boolean } = {}) => {
     try {
       const validColorCount = (typeof colorCount === 'number' && [5, 6, 7, 8].includes(colorCount)) ? colorCount : null;
-      const key = queueKey(validColorCount);
+      // Blitz is only offered for the numbers pool to keep matchmaking pools from fragmenting.
+      const isBlitz = blitz === true && validColorCount == null;
+      const key = queueKey(validColorCount, isBlitz);
 
       // Check if already in any queue, remove first to avoid stale entries
       await removeFromAllQueues(socket.userId);

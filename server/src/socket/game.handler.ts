@@ -6,6 +6,7 @@ import { Game, type IGame } from '../models/Game.model.js';
 import { User } from '../models/User.model.js';
 import { evaluate } from '../utils/bulls-cows.js';
 import { initAIGame, getAIGuess, processAIResult, getAISecret, cleanupAIGame } from '../services/ai.service.js';
+import { redis } from '../config/redis.js';
 
 const DEFAULT_TURN_TIME_MS = 60_000;
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -85,45 +86,138 @@ function calculateElo(winnerRating: number, loserRating: number) {
   return { winnerDelta: delta, loserDelta: -delta };
 }
 
-async function endGame(io: Server, game: IGame, winnerId: string | null, reason: string) {
-  const gameId = game._id!.toString();
-  clearTurnTimer(gameId);
-  gameCurrentTurns.delete(gameId);
+type EndReason = 'guessed' | 'opponent_quit' | 'timeout' | 'draw';
 
-  let eloChange = null;
-  if (game.type === 'pvp' && game.matchType === 'ranked' && winnerId && reason === 'guessed') {
-    const hostUser = await User.findById(game.players.host.userId);
-    const challUser = await User.findById(game.players.challenger.userId);
-    if (hostUser && challUser) {
-      const isHostWinner = winnerId === game.players.host.userId.toString();
-      const { winnerDelta, loserDelta } = calculateElo(
-        isHostWinner ? hostUser.stats.eloRating : challUser.stats.eloRating,
-        isHostWinner ? challUser.stats.eloRating : hostUser.stats.eloRating,
-      );
-      eloChange = { host: isHostWinner ? winnerDelta : loserDelta, challenger: isHostWinner ? loserDelta : winnerDelta };
-      for (const [user, delta, won] of [
-        [hostUser, eloChange.host, winnerId === hostUser._id!.toString()] as const,
-        [challUser, eloChange.challenger, winnerId === challUser._id!.toString()] as const,
-      ]) {
-        user.stats.gamesPlayed++;
-        if (won) { user.stats.gamesWon++; user.stats.currentStreak++; user.stats.longestStreak = Math.max(user.stats.longestStreak, user.stats.currentStreak); }
-        else { user.stats.gamesLost++; user.stats.currentStreak = 0; }
-        user.stats.eloRating += delta;
-        await user.save();
+/**
+ * Apply per-player stats (and optional ELO delta) using atomic update operators.
+ * Skips the synthetic 'AI' participant. Outcome is one of 'win' | 'loss' | 'draw'.
+ * `bestGuessCount` is only passed (and only applied) for the winner of a `guessed` win;
+ * a win additionally does one read to resolve streak + bestGame before the write.
+ */
+async function applyPlayerStats(
+  userId: string,
+  outcome: 'win' | 'loss' | 'draw',
+  ownGuessCount: number,
+  eloDelta: number | null,
+  bestGuessCount: number | null,
+): Promise<void> {
+  if (userId === 'AI') return;
+
+  const inc: Record<string, number> = { 'stats.gamesPlayed': 1, 'stats.totalGuesses': ownGuessCount };
+  if (eloDelta !== null) inc['stats.eloRating'] = eloDelta;
+
+  const set: Record<string, number> = {};
+
+  if (outcome === 'loss') {
+    inc['stats.gamesLost'] = 1;
+    set['stats.currentStreak'] = 0;
+  } else if (outcome === 'draw') {
+    // draw: count it, leave streak untouched.
+    inc['stats.gamesDraw'] = 1;
+  }
+
+  if (outcome === 'win') {
+    inc['stats.gamesWon'] = 1;
+    // A win needs the user's current streak (post-increment value for longestStreak,
+    // which a single update can't reference) and current bestGame. NOTE: we cannot use
+    // $min for bestGame — the schema stores `null` (not absent), and in BSON order
+    // null < any number, so $min would keep null forever. Resolve it explicitly here.
+    const user = await User.findById(userId)
+      .select('stats.currentStreak stats.longestStreak stats.bestGame')
+      .lean();
+    if (!user) return; // user vanished; nothing to update
+    const newStreak = (user.stats?.currentStreak ?? 0) + 1;
+    set['stats.currentStreak'] = newStreak;
+    set['stats.longestStreak'] = Math.max(user.stats?.longestStreak ?? 0, newStreak);
+    if (bestGuessCount !== null) {
+      const currentBest = user.stats?.bestGame;
+      if (currentBest == null || bestGuessCount < currentBest) {
+        set['stats.bestGame'] = bestGuessCount;
       }
     }
   }
 
-  game.status = 'completed';
-  game.completedAt = new Date();
-  game.result = {
-    winnerId,
-    reason: reason as 'guessed' | 'opponent_quit' | 'timeout' | 'draw',
-    hostGuessCount: game.players.host.guesses.length,
-    challengerGuessCount: game.players.challenger.guesses.length,
-    eloChange,
-  };
-  await game.save();
+  await User.updateOne(
+    { _id: userId },
+    {
+      $inc: inc,
+      ...(Object.keys(set).length ? { $set: set } : {}),
+    },
+  );
+}
+
+/**
+ * End a game: idempotently claims completion, applies stats/ELO for every real
+ * participant, then emits `server:game:over`. Only the path that wins the atomic
+ * status claim proceeds — concurrent callers (quit + disconnect, timeout + guess)
+ * become no-ops, so ELO/stats are applied exactly once.
+ *
+ * `abandoned` marks a disconnect-abandon so history can distinguish it from a clean
+ * quit; stats/ELO are still applied identically to a normal completion.
+ */
+async function endGame(
+  io: Server,
+  game: IGame,
+  winnerId: string | null,
+  reason: EndReason,
+  abandoned = false,
+): Promise<void> {
+  const gameId = game._id!.toString();
+  clearTurnTimer(gameId);
+  gameCurrentTurns.delete(gameId);
+
+  const hostId = game.players.host.userId.toString();
+  const challId = game.players.challenger.userId.toString();
+  const hostGuessCount = game.players.host.guesses.length;
+  const challengerGuessCount = game.players.challenger.guesses.length;
+  const isRanked = game.type === 'pvp' && game.matchType === 'ranked';
+
+  // Compute ELO change BEFORE claiming completion so it can be stored in result.
+  // Ranked only, and only when there is a decisive winner (not a draw).
+  let eloChange: { host: number; challenger: number } | null = null;
+  if (isRanked && winnerId && reason !== 'draw') {
+    const hostUser = await User.findById(hostId).select('stats.eloRating').lean();
+    const challUser = await User.findById(challId).select('stats.eloRating').lean();
+    if (hostUser && challUser) {
+      const isHostWinner = winnerId === hostId;
+      const { winnerDelta, loserDelta } = calculateElo(
+        isHostWinner ? hostUser.stats.eloRating : challUser.stats.eloRating,
+        isHostWinner ? challUser.stats.eloRating : hostUser.stats.eloRating,
+      );
+      eloChange = {
+        host: isHostWinner ? winnerDelta : loserDelta,
+        challenger: isHostWinner ? loserDelta : winnerDelta,
+      };
+    }
+  }
+
+  // Atomically claim completion. Only one caller wins this conditional write;
+  // any other path that already ended the game makes `claimed` null -> no-op.
+  const claimed = await Game.findOneAndUpdate(
+    { _id: game._id, status: { $in: ['in_progress', 'waiting_secrets'] } },
+    {
+      $set: {
+        status: abandoned ? 'abandoned' : 'completed',
+        completedAt: new Date(),
+        result: { winnerId, reason, hostGuessCount, challengerGuessCount, eloChange },
+      },
+    },
+    { new: true },
+  );
+  if (!claimed) return; // another path already ended this game
+
+  // Apply stats/ELO for each real participant. Winner gets bestGame on a `guessed` win.
+  const isDraw = reason === 'draw';
+  const hostOutcome: 'win' | 'loss' | 'draw' = isDraw ? 'draw' : winnerId === hostId ? 'win' : 'loss';
+  const challOutcome: 'win' | 'loss' | 'draw' = isDraw ? 'draw' : winnerId === challId ? 'win' : 'loss';
+  const hostElo = eloChange ? eloChange.host : null;
+  const challElo = eloChange ? eloChange.challenger : null;
+  const hostBest = reason === 'guessed' && hostOutcome === 'win' ? hostGuessCount : null;
+  const challBest = reason === 'guessed' && challOutcome === 'win' ? challengerGuessCount : null;
+
+  await applyPlayerStats(hostId, hostOutcome, hostGuessCount, hostElo, hostBest);
+  await applyPlayerStats(challId, challOutcome, challengerGuessCount, challElo, challBest);
+
   if (game.type === 'ai') cleanupAIGame(gameId);
 
   io.to(gameRoom(gameId)).emit('server:game:over', {
@@ -132,8 +226,49 @@ async function endGame(io: Server, game: IGame, winnerId: string | null, reason:
     hostSecret: game.players.host.secret,
     challengerSecret: game.players.challenger.secret,
     eloChange,
-    stats: { hostGuesses: game.players.host.guesses.length, challengerGuesses: game.players.challenger.guesses.length },
+    stats: { hostGuesses: hostGuessCount, challengerGuesses: challengerGuessCount },
   });
+}
+
+/**
+ * Create a fresh game mirroring a finished one (same mode/turn-time/players).
+ * AI: recreated instantly for the requester. PvP: both players in the old room
+ * are told to navigate to the new game via `server:game:rematch-start`.
+ */
+async function createRematchGame(io: Server, socket: AuthenticatedSocket, orig: any): Promise<void> {
+  const colorCount = orig.colorCount ?? null;
+
+  if (orig.type === 'ai') {
+    const difficulty = (orig.aiDifficulty || 'medium') as AIDifficulty;
+    initAIGame('pending', difficulty, colorCount);
+    const game = await Game.create({
+      type: 'ai', matchType: 'ai', status: 'waiting_secrets',
+      turnTimeMs: orig.turnTimeMs, colorCount, aiDifficulty: difficulty,
+      players: {
+        host: { userId: socket.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
+        challenger: { userId: 'AI', secret: '', secretSet: true, guesses: [], guessedThisRound: false },
+      },
+    });
+    const newId = game._id!.toString();
+    cleanupAIGame('pending');
+    initAIGame(newId, difficulty, colorCount);
+    game.players.challenger.secret = getAISecret(newId)!;
+    await game.save();
+    socket.emit('server:game:rematch-start', { gameId: newId });
+    return;
+  }
+
+  // PvP: same host/challenger, fresh secrets/guesses
+  const game = await Game.create({
+    type: 'pvp', matchType: orig.matchType, status: 'waiting_secrets',
+    turnTimeMs: orig.turnTimeMs, colorCount,
+    players: {
+      host: { userId: orig.players.host.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
+      challenger: { userId: orig.players.challenger.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
+    },
+  });
+  const newId = game._id!.toString();
+  io.to(gameRoom(orig._id.toString())).emit('server:game:rematch-start', { gameId: newId });
 }
 
 export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void {
@@ -147,6 +282,7 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
         type: 'ai', matchType: 'ai', status: 'waiting_secrets',
         turnTimeMs: validTurnTime,
         colorCount: validColorCount,
+        aiDifficulty: difficulty,
         players: {
           host: { userId: socket.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
           challenger: { userId: 'AI', secret: aiSecret, secretSet: true, guesses: [], guessedThisRound: false },
@@ -162,6 +298,45 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
       socket.emit('server:game:state', buildGameState(game, socket.userId, socket.displayName, socket.avatarUrl, `AI (${difficulty})`));
     } catch (err) {
       socket.emit('server:error', { code: 'GAME_CREATE_FAILED', message: 'Failed to create game' });
+    }
+  });
+
+  // Rematch: PvP relays a request to the opponent; AI recreates instantly.
+  socket.on('client:game:rematch', async ({ gameId }: { gameId: string }) => {
+    try {
+      const game = await Game.findById(gameId).lean();
+      if (!game || (game.status !== 'completed' && game.status !== 'abandoned')) return;
+      const hostId = game.players.host.userId.toString();
+      const challId = game.players.challenger.userId.toString();
+      if (socket.userId !== hostId && socket.userId !== challId) return;
+
+      if (game.type === 'ai') {
+        await createRematchGame(io, socket, game);
+        return;
+      }
+      // PvP: relay to the opponent still in the room
+      socket.to(gameRoom(gameId)).emit('server:game:rematch-requested', {
+        gameId, fromUserId: socket.userId, fromName: socket.displayName,
+      });
+    } catch (err) {
+      socket.emit('server:error', { code: 'REMATCH_FAILED', message: 'Rematch failed' });
+    }
+  });
+
+  // Accept a PvP rematch: create the new game exactly once (redis lock), start both.
+  socket.on('client:game:rematch-accept', async ({ gameId }: { gameId: string }) => {
+    try {
+      const game = await Game.findById(gameId).lean();
+      if (!game || game.type !== 'pvp') return;
+      const hostId = game.players.host.userId.toString();
+      const challId = game.players.challenger.userId.toString();
+      if (socket.userId !== hostId && socket.userId !== challId) return;
+      // idempotency: only one rematch game per original, even on double-accept
+      const locked = await redis.set(`rematch:${gameId}`, '1', 'EX', 30, 'NX');
+      if (!locked) return;
+      await createRematchGame(io, socket, game);
+    } catch (err) {
+      socket.emit('server:error', { code: 'REMATCH_FAILED', message: 'Rematch failed' });
     }
   });
 
@@ -370,4 +545,4 @@ function buildGameState(game: IGame, myUserId: string, myName: string, myAvatar:
   };
 }
 
-export { clearTurnTimer };
+export { clearTurnTimer, endGame };

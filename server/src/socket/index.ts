@@ -1,12 +1,11 @@
 import type { Server, Socket } from 'socket.io';
 import { verifyJwt } from '../services/auth.service.js';
 import { User } from '../models/User.model.js';
-import { handleGameEvents } from './game.handler.js';
+import { handleGameEvents, endGame } from './game.handler.js';
 import { handleMatchmakingEvents } from './matchmaking.handler.js';
 import { handleInviteEvents } from './invite.handler.js';
 import { redis } from '../config/redis.js';
 import { Game } from '../models/Game.model.js';
-import { cleanupAIGame } from '../services/ai.service.js';
 
 export interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -88,38 +87,15 @@ export function setupSocket(io: Server): void {
         });
 
         for (const game of activeGames) {
-          const gameId = game._id!.toString();
           const isHost = game.players.host.userId.toString() === userId;
           const opponentId = isHost
             ? game.players.challenger.userId.toString()
             : game.players.host.userId.toString();
 
-          game.status = 'abandoned';
-          game.completedAt = new Date();
-          game.result = {
-            winnerId: opponentId === 'AI' ? null : opponentId,
-            reason: 'opponent_quit',
-            hostGuessCount: game.players.host.guesses.length,
-            challengerGuessCount: game.players.challenger.guesses.length,
-            eloChange: null,
-          };
-          await game.save();
-
-          if (game.type === 'ai') cleanupAIGame(gameId);
-
-          if (opponentId !== 'AI') {
-            io.to(`game:${gameId}`).emit('server:game:over', {
-              winnerId: opponentId,
-              reason: 'opponent_quit',
-              hostSecret: game.players.host.secret,
-              challengerSecret: game.players.challenger.secret,
-              eloChange: null,
-              stats: {
-                hostGuesses: game.players.host.guesses.length,
-                challengerGuesses: game.players.challenger.guesses.length,
-              },
-            });
-          }
+          // Route through the single endGame funnel so ELO/stats are applied (and
+          // applied exactly once). `abandoned` marks this as a disconnect-abandon so
+          // history can distinguish it from a clean quit. The opponent is the winner.
+          await endGame(io, game, opponentId === 'AI' ? null : opponentId, 'opponent_quit', true);
         }
       }, 10_000);
 
