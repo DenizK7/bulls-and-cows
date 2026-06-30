@@ -58,6 +58,7 @@ export default function LobbyPage() {
   const [aiTurnTime, setAiTurnTime] = useState(60000);
   const [colorCount, setColorCount] = useState<number | null>(null);
   const [blitz, setBlitz] = useState(false);
+  const [wordLang, setWordLang] = useState<"en" | "tr" | null>(null);
   const [dailyPrompt, setDailyPrompt] = useState<{ dateKey: string } | null>(null);
   const [editName, setEditName] = useState("");
   const [nameMsg, setNameMsg] = useState("");
@@ -217,7 +218,7 @@ export default function LobbyPage() {
 
   const handleFindMatch = () => {
     if (matchmaking) { socket?.emit("client:matchmaking:leave"); setMatchmaking(false); }
-    else { socket?.emit("client:matchmaking:join", { colorCount, blitz: blitz && colorCount == null }); setMatchmaking(true); }
+    else { socket?.emit("client:matchmaking:join", { colorCount: wordLang ? null : colorCount, blitz: blitz && colorCount == null && !wordLang, wordLang }); setMatchmaking(true); }
   };
 
   const handleAddFriend = async () => {
@@ -393,21 +394,27 @@ export default function LobbyPage() {
             <motion.div key="play" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex flex-col gap-3">
               {/* Mode — compact segmented control shared by Quick Play & AI */}
               <div className="kit-panel p-2">
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button onClick={() => setColorCount(null)}
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button onClick={() => { setColorCount(null); setWordLang(null); }}
                     className={`py-2 rounded-lg border-2 text-sm font-bold cursor-pointer transition-all ${
-                      colorCount == null ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
+                      colorCount == null && !wordLang ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
                     }`}>
                     {t("lobby.modeNumbers")}
                   </button>
-                  <button onClick={() => setColorCount(colorCount == null ? 6 : colorCount)}
+                  <button onClick={() => { setColorCount(colorCount != null ? colorCount : 6); setWordLang(null); }}
                     className={`py-2 rounded-lg border-2 text-sm font-bold cursor-pointer transition-all ${
-                      colorCount != null ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
+                      colorCount != null && !wordLang ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
                     }`}>
                     {t("lobby.modeColors")}
                   </button>
+                  <button onClick={() => setWordLang(wordLang ?? "tr")}
+                    className={`py-2 rounded-lg border-2 text-sm font-bold cursor-pointer transition-all ${
+                      wordLang ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
+                    }`}>
+                    {t("lobby.modeWords")}
+                  </button>
                 </div>
-                {colorCount != null && (
+                {colorCount != null && !wordLang && (
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-[10px] shrink-0 text-[#2a1d16]/70">{t("lobby.colorCount")}</span>
                     <div className="flex gap-1 flex-1">
@@ -427,6 +434,21 @@ export default function LobbyPage() {
                     </div>
                   </div>
                 )}
+                {wordLang && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] shrink-0 text-[#2a1d16]/70">{t("lobby.language")}</span>
+                    <div className="flex gap-1 flex-1">
+                      {(["tr", "en"] as const).map((l) => (
+                        <button key={l} onClick={() => setWordLang(l)}
+                          className={`flex-1 py-1 rounded-md border-2 text-xs font-bold cursor-pointer transition-all ${
+                            wordLang === l ? "border-[#2a1d16] bg-[#2a1d16] text-[#f0d9c0]" : "border-[#2a1d16]/30 text-[#2a1d16]/65 hover:border-[#2a1d16]/60"
+                          }`}>
+                          {l === "tr" ? "Türkçe" : "English"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* HERO: Quick Play (online matchmaking) */}
@@ -435,7 +457,7 @@ export default function LobbyPage() {
                   <IconGlobe className="w-4 h-4" />
                   <h2 className="text-sm font-bold">{t("lobby.playOnline")}</h2>
                 </div>
-                {colorCount == null && !matchmaking && (
+                {colorCount == null && !wordLang && !matchmaking && (
                   <div className="grid grid-cols-2 gap-1.5 mb-3">
                     <button onClick={() => setBlitz(false)}
                       className={`flex items-center justify-center gap-1.5 py-2 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
@@ -487,13 +509,14 @@ export default function LobbyPage() {
                     { label: t("difficulty.medium"), difficulty: "medium", bg: "bg-warning", edge: "#8a763e" },
                     { label: t("difficulty.hard"), difficulty: "hard", bg: "bg-danger", edge: "#7a3b3b" },
                   ].map((m) => (
-                    <button key={m.difficulty} onClick={() => handlePlayAI(m.difficulty)} disabled={!connected}
+                    <button key={m.difficulty} onClick={() => handlePlayAI(m.difficulty)} disabled={!connected || !!wordLang}
                       style={{ "--edge": m.edge } as CSSProperties}
                       className={`btn-juicy rounded-xl py-3 text-center font-bold text-sm text-bg cursor-pointer ${m.bg}`}>
                       {m.label}
                     </button>
                   ))}
                 </div>
+                {wordLang && <p className="text-[10px] text-[#2a1d16]/60 mt-2 text-center">{t("lobby.wordsOnline")}</p>}
               </div>
 
               {/* Secondary: Daily / Friends / How-to */}

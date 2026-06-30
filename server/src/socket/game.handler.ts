@@ -5,6 +5,7 @@ import { isValidSecret, isValidGuess, ELO_K_FACTOR } from '@bulls-and-cows/share
 import { Game, type IGame } from '../models/Game.model.js';
 import { User } from '../models/User.model.js';
 import { evaluate } from '../utils/bulls-cows.js';
+import { isValidWord, normalizeWord, randomWord, isWordLang, type WordLang } from '../utils/words.js';
 import { initAIGame, getAIGuess, processAIResult, getAISecret, cleanupAIGame } from '../services/ai.service.js';
 import { redis } from '../config/redis.js';
 
@@ -56,7 +57,7 @@ function startTurnTimer(io: Server, gameId: string, currentTurn: 'host' | 'chall
           io.to(gameRoom(gameId)).emit('server:game:guess-result', {
             role: 'challenger', guess: aiGuess, bulls: aiResult.bulls, cows: aiResult.cows,
           });
-          if (aiResult.bulls === 4) {
+          if (aiResult.bulls === timedOutPlayer.secret.length) {
             await game.save();
             await endGame(io, game, 'AI', 'guessed');
             return;
@@ -340,6 +341,12 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
     }
   });
 
+  // Suggest a random valid word (for the secret picker's random/auto-pick — client has no dictionary)
+  socket.on('client:word:suggest', ({ lang }: { lang?: string }) => {
+    if (!isWordLang(lang)) return;
+    socket.emit('server:word:suggest', { word: randomWord(lang) });
+  });
+
   // Join game room
   socket.on('client:game:join', async ({ gameId }: { gameId: string }) => {
     try {
@@ -375,8 +382,15 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
       // Determine role and color range first with a quick read
       const check = await Game.findById(gameId).lean();
       if (!check || check.status !== 'waiting_secrets') return;
-      const maxDigit = check.colorCount != null ? check.colorCount - 1 : 9;
-      if (!isValidSecret(secret, maxDigit)) { socket.emit('server:error', { code: 'INVALID_SECRET', message: 'Invalid secret' }); return; }
+      // Word mode: validate against the dictionary; else digit/color rules.
+      let storedSecret = secret;
+      if (check.wordLang) {
+        if (!isValidWord(secret, check.wordLang as WordLang)) { socket.emit('server:error', { code: 'INVALID_SECRET', message: 'Not a valid word' }); return; }
+        storedSecret = normalizeWord(secret, check.wordLang as WordLang);
+      } else {
+        const maxDigit = check.colorCount != null ? check.colorCount - 1 : 9;
+        if (!isValidSecret(secret, maxDigit)) { socket.emit('server:error', { code: 'INVALID_SECRET', message: 'Invalid secret' }); return; }
+      }
       const isHost = check.players.host.userId.toString() === socket.userId;
       const alreadySet = isHost ? check.players.host.secretSet : check.players.challenger.secretSet;
       if (alreadySet) return;
@@ -385,7 +399,7 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
       const updatePath = isHost ? 'players.host' : 'players.challenger';
       const game = await Game.findOneAndUpdate(
         { _id: gameId, status: 'waiting_secrets', [`${updatePath}.secretSet`]: false },
-        { $set: { [`${updatePath}.secret`]: secret, [`${updatePath}.secretSet`]: true } },
+        { $set: { [`${updatePath}.secret`]: storedSecret, [`${updatePath}.secretSet`]: true } },
         { new: true },
       );
       if (!game) return; // already set or game state changed
@@ -419,8 +433,12 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
     try {
       const game = await Game.findById(gameId);
       if (!game || game.status !== 'in_progress') return;
-      const maxDigit = game.colorCount != null ? game.colorCount - 1 : 9;
-      if (!isValidGuess(guess, maxDigit)) { socket.emit('server:error', { code: 'INVALID_GUESS', message: 'Invalid guess' }); return; }
+      if (game.wordLang) {
+        if (!isValidWord(guess, game.wordLang as WordLang)) { socket.emit('server:error', { code: 'INVALID_GUESS', message: 'Not a valid word' }); return; }
+      } else {
+        const maxDigit = game.colorCount != null ? game.colorCount - 1 : 9;
+        if (!isValidGuess(guess, maxDigit)) { socket.emit('server:error', { code: 'INVALID_GUESS', message: 'Invalid guess' }); return; }
+      }
 
       const isHost = game.players.host.userId.toString() === socket.userId;
       const currentTurn = gameCurrentTurns.get(gameId) || 'host';
@@ -436,18 +454,20 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
       const me = isHost ? game.players.host : game.players.challenger;
       const opponent = isHost ? game.players.challenger : game.players.host;
 
+      const g = game.wordLang ? normalizeWord(guess, game.wordLang as WordLang) : guess;
+
       // Evaluate my guess
-      const result = evaluate(guess, opponent.secret);
-      me.guesses.push({ guess, bulls: result.bulls, cows: result.cows, timestamp: new Date() });
+      const result = evaluate(g, opponent.secret);
+      me.guesses.push({ guess: g, bulls: result.bulls, cows: result.cows, timestamp: new Date() });
 
       // Broadcast my guess result to all
       io.to(gameRoom(gameId)).emit('server:game:guess-result', {
         role: isHost ? 'host' : 'challenger',
-        guess, bulls: result.bulls, cows: result.cows,
+        guess: g, bulls: result.bulls, cows: result.cows,
       });
 
-      // Check if I won
-      if (result.bulls === 4) {
+      // Check if I won (bulls === secret length: 4 for digits/colors, 5 for words)
+      if (result.bulls === opponent.secret.length) {
         await game.save();
         await endGame(io, game, me.userId.toString(), 'guessed');
         return;
@@ -468,7 +488,7 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
             guess: aiGuess, bulls: aiResult.bulls, cows: aiResult.cows,
           });
 
-          if (aiResult.bulls === 4) {
+          if (aiResult.bulls === me.secret.length) {
             await game.save();
             await endGame(io, game, 'AI', 'guessed');
             return;
@@ -525,6 +545,7 @@ function buildGameState(game: IGame, myUserId: string, myName: string, myAvatar:
     matchType: game.matchType,
     status: game.status,
     colorCount: game.colorCount ?? null,
+    wordLang: game.wordLang ?? null,
     host: {
       userId: game.players.host.userId.toString(),
       displayName: isHost ? myName : oppName,

@@ -26,6 +26,7 @@ export interface IGame extends Document {
   currentRound: number;
   turnTimeMs: number;
   colorCount: number | null;
+  wordLang: 'en' | 'tr' | null;
   aiDifficulty: 'easy' | 'medium' | 'hard' | null;
   result: {
     winnerId: Types.ObjectId | string | null;
@@ -77,6 +78,7 @@ const gameSchema = new Schema<IGame>(
     currentRound: { type: Number, default: 1 },
     turnTimeMs: { type: Number, default: 60000 },
     colorCount: { type: Number, default: null },
+    wordLang: { type: String, enum: ['en', 'tr', null], default: null },
     aiDifficulty: { type: String, enum: ['easy', 'medium', 'hard', null], default: null },
     result: { type: Schema.Types.Mixed, default: null },
     startedAt: { type: Date, default: null },

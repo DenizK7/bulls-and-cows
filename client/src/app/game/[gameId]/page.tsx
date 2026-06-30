@@ -14,6 +14,10 @@ import { playSound } from "@/lib/sound";
 import { Confetti } from "@/components/Confetti";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Mascot } from "@/components/Mascot";
+import { GameFX } from "@/components/GameFX";
+import { fxVictory, fxSpark } from "@/lib/gamefx";
+import { WordInput } from "@/components/WordInput";
+import type { WordLang } from "@/lib/words";
 
 function DigitPiece({ digit, size = "md", state }: {
   digit: string;
@@ -572,26 +576,32 @@ function useTutorialTips(guesses: { bulls: number; cows: number }[], notepadOpen
   return { input, notepad, guessArea, hasActiveTip, dismiss, isTutorial };
 }
 
-function SecretModal({ onSubmit, colorCount }: { onSubmit: (secret: string) => void; colorCount?: number | null }) {
+function SecretModal({ onSubmit, colorCount, wordLang, suggestedWord }: { onSubmit: (secret: string) => void; colorCount?: number | null; wordLang?: WordLang | null; suggestedWord?: string }) {
   const [remaining, setRemaining] = useState(30);
   const [deadline] = useState(() => Date.now() + 30000);
+  const suggRef = useRef(suggestedWord);
+  suggRef.current = suggestedWord;
 
   useEffect(() => {
     const tick = () => {
       const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setRemaining(left);
       if (left <= 0) {
-        // Auto-generate random secret within the allowed range
-        const max = colorCount != null ? colorCount : 10;
-        const digits = Array.from({ length: max }, (_, i) => i);
-        for (let i = digits.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [digits[i], digits[j]] = [digits[j], digits[i]]; }
-        onSubmit(digits.slice(0, 4).join(""));
+        if (wordLang) {
+          if (suggRef.current) onSubmit(suggRef.current); // need a valid word; server-suggested
+        } else {
+          // Auto-generate random secret within the allowed range
+          const max = colorCount != null ? colorCount : 10;
+          const digits = Array.from({ length: max }, (_, i) => i);
+          for (let i = digits.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [digits[i], digits[j]] = [digits[j], digits[i]]; }
+          onSubmit(digits.slice(0, 4).join(""));
+        }
       }
     };
     tick();
     const interval = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [deadline, onSubmit, colorCount]);
+  }, [deadline, onSubmit, colorCount, wordLang]);
 
   const pct = remaining / 30;
   const circumference = 2 * Math.PI * 58;
@@ -616,8 +626,18 @@ function SecretModal({ onSubmit, colorCount }: { onSubmit: (secret: string) => v
             </span>
           </div>
           <h2 className="text-xl font-bold mb-1">{t("game.chooseSecret")}</h2>
-          <p className="text-text-muted text-sm mb-6">{t("game.chooseSecretDesc")}. {t("game.autoPicks")} {remaining}s</p>
-          <DigitInput onSubmit={onSubmit} disabled={false} confirmLabel={t("game.confirm")} colorCount={colorCount} />
+          <p className="text-text-muted text-sm mb-6">{wordLang ? t("game.chooseWordDesc") : t("game.chooseSecretDesc")}. {t("game.autoPicks")} {remaining}s</p>
+          {wordLang ? (
+            <>
+              <WordInput onSubmit={onSubmit} disabled={false} confirmLabel={t("game.confirm")} wordLang={wordLang} />
+              {suggestedWord && (
+                <button onClick={() => onSubmit(suggestedWord)}
+                  className="mt-3 text-xs text-text-dim hover:text-text-muted cursor-pointer">🎲 {t("lobby.random")}</button>
+              )}
+            </>
+          ) : (
+            <DigitInput onSubmit={onSubmit} disabled={false} confirmLabel={t("game.confirm")} colorCount={colorCount} />
+          )}
         </div>
       </motion.div>
     </motion.div>
@@ -705,6 +725,7 @@ export default function GamePage() {
   const [notepadOpen, setNotepadOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
   const [rematchSent, setRematchSent] = useState(false);
+  const [wordSuggestion, setWordSuggestion] = useState("");
   const [floatingEmojis, setFloatingEmojis] = useState<{ emoji: string; id: number; side: "left" | "right" }[]>([]);
   const emojiIdRef = useRef(0);
   const music = useMusicPlayer();
@@ -747,6 +768,9 @@ export default function GamePage() {
       const last = game.myGuesses[n - 1];
       if (last && last.bulls < 4) {
         playSound(last.bulls > 0 ? "bull" : last.cows > 0 ? "cow" : "miss");
+        if (last.bulls > 0 || last.cows > 0) {
+          fxSpark(window.innerWidth / 2, window.innerHeight * 0.7, last.bulls > 0 ? "bull" : "cow");
+        }
       }
     }
     prevMyGuessCount.current = n;
@@ -764,6 +788,7 @@ export default function GamePage() {
     if (game.status === "completed" && game.result && !playedEndRef.current) {
       playedEndRef.current = true;
       playSound(isWinner && !isDraw ? "win" : "lose");
+      if (isWinner && !isDraw) fxVictory();
     }
   }, [game.status, game.result, isWinner, isDraw]);
 
@@ -794,12 +819,22 @@ export default function GamePage() {
     if (game.opponent?.userId !== "AI") setRematchSent(true);
   };
 
+  // Word mode: fetch a server-suggested valid word (for the secret picker's random/auto-pick)
+  useEffect(() => {
+    if (!socket || !game.wordLang) return;
+    const onSuggest = (d: { word: string }) => setWordSuggestion(d.word);
+    socket.on("server:word:suggest", onSuggest);
+    socket.emit("client:word:suggest", { lang: game.wordLang });
+    return () => { socket.off("server:word:suggest", onSuggest); };
+  }, [socket, game.wordLang]);
+
   if (!game.gameId || !game.opponent) {
     return <LoadingScreen />;
   }
 
   return (
     <div className="flex-1 flex flex-col h-full max-w-5xl mx-auto w-full">
+      <GameFX />
       {/* Top bar: timer takes center stage */}
       <div className="px-4 pt-3 pb-2 flex items-center justify-between shrink-0">
         <div className="shrink-0">
@@ -861,7 +896,7 @@ export default function GamePage() {
       {/* Secret Setting Modal with 30s timer */}
       <AnimatePresence>
         {game.status === "waiting_secrets" && !game.mySecretSet && (
-          <SecretModal onSubmit={game.setSecret} colorCount={game.colorCount} />
+          <SecretModal onSubmit={game.setSecret} colorCount={game.colorCount} wordLang={game.wordLang} suggestedWord={wordSuggestion} />
         )}
         {game.status === "waiting_secrets" && game.mySecretSet && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -908,8 +943,8 @@ export default function GamePage() {
           />
         </div>
 
-        {/* Notepad sidebar - desktop only */}
-        {game.status === "in_progress" && (
+        {/* Notepad sidebar - desktop only (digit/color helper; not for word mode) */}
+        {game.status === "in_progress" && !game.wordLang && (
           <div className="hidden lg:block w-52 shrink-0">
             <AnimatePresence>
               {tutorial.notepad && <TutorialBubble id={tutorial.notepad.key} text={tutorial.notepad.text} onDismiss={() => tutorial.dismiss(tutorial.notepad!.key)} />}
@@ -940,17 +975,23 @@ export default function GamePage() {
               </AnimatePresence>
               <div className="flex items-start gap-2">
                 <div className="flex-1">
-                  <DigitInput onSubmit={game.submitGuess} disabled={false} confirmLabel={t("game.confirm")} colorCount={game.colorCount} />
+                  {game.wordLang ? (
+                    <WordInput onSubmit={game.submitGuess} disabled={false} confirmLabel={t("game.confirm")} wordLang={game.wordLang} />
+                  ) : (
+                    <DigitInput onSubmit={game.submitGuess} disabled={false} confirmLabel={t("game.confirm")} colorCount={game.colorCount} />
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
-                  <button
-                    onClick={() => setNotepadOpen(!notepadOpen)}
-                    className={`lg:hidden h-10 px-3 rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-all text-xs font-medium ${
-                      notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
-                    }`}
-                  >
-                    {t("game.notepad")}
-                  </button>
+                  {!game.wordLang && (
+                    <button
+                      onClick={() => setNotepadOpen(!notepadOpen)}
+                      className={`lg:hidden h-10 px-3 rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-all text-xs font-medium ${
+                        notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
+                      }`}
+                    >
+                      {t("game.notepad")}
+                    </button>
+                  )}
                   {/* Emoji reactions */}
                   <div className="flex flex-wrap gap-1 justify-center">
                     {GAME_EMOJIS.map((e) => (
@@ -968,14 +1009,16 @@ export default function GamePage() {
               <div className="flex items-center gap-2 text-text-muted">
                 <div className="w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
                 <span className="text-sm">{game.opponent?.displayName} {t("game.waiting")}</span>
-                <button
-                  onClick={() => setNotepadOpen(!notepadOpen)}
-                  className={`lg:hidden ml-2 shrink-0 h-8 px-2.5 rounded-lg border flex items-center justify-center cursor-pointer transition-all text-xs font-medium ${
-                    notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
-                  }`}
-                >
-                  {t("game.notepad")}
-                </button>
+                {!game.wordLang && (
+                  <button
+                    onClick={() => setNotepadOpen(!notepadOpen)}
+                    className={`lg:hidden ml-2 shrink-0 h-8 px-2.5 rounded-lg border flex items-center justify-center cursor-pointer transition-all text-xs font-medium ${
+                      notepadOpen ? "bg-accent/15 border-accent/30 text-accent" : "bg-bg-elevated border-border text-text-muted"
+                    }`}
+                  >
+                    {t("game.notepad")}
+                  </button>
+                )}
               </div>
               {/* Emoji reactions - also available while waiting */}
               <div className="flex gap-1.5">
@@ -991,7 +1034,7 @@ export default function GamePage() {
 
           {/* Mobile notepad drawer */}
           <AnimatePresence>
-            {notepadOpen && (
+            {notepadOpen && !game.wordLang && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                 className="lg:hidden overflow-hidden mt-2">
                 <div className="relative">

@@ -30,6 +30,7 @@ interface GameState {
   } | null;
   mySecret: string | null;
   colorCount: number | null;
+  wordLang: "en" | "tr" | null;
   rematchRequestedBy: string | null; // opponent name who asked for a rematch
   rematchGameId: string | null; // new game id to navigate to
 }
@@ -60,6 +61,7 @@ const initialState: GameState = {
   result: null,
   mySecret: null,
   colorCount: null,
+  wordLang: null,
   rematchRequestedBy: null,
   rematchGameId: null,
 };
@@ -85,6 +87,7 @@ function reducer(state: GameState, action: Action): GameState {
         currentRound: (p.currentRound as number) || 1,
         currentTurn: (p.currentTurn as "host" | "challenger") || null,
         colorCount: (p.colorCount as number | null | undefined) ?? null,
+        wordLang: (p.wordLang as "en" | "tr" | null | undefined) ?? null,
         opponent: {
           userId: opp.userId as string,
           displayName: opp.displayName as string,

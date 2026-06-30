@@ -5,12 +5,13 @@ export function evaluate(guess: string, secret: string): EvaluationResult {
   let bulls = 0;
   let cows = 0;
 
-  // Track which secret digits are already matched as bulls
-  const secretUsed = new Array(DIGIT_COUNT).fill(false);
-  const guessUsed = new Array(DIGIT_COUNT).fill(false);
+  // Length-general (4 for digits/colors, 5 for words). Handles repeats correctly.
+  const len = secret.length;
+  const secretUsed = new Array(len).fill(false);
+  const guessUsed = new Array(len).fill(false);
 
   // First pass: count bulls (exact matches)
-  for (let i = 0; i < DIGIT_COUNT; i++) {
+  for (let i = 0; i < len; i++) {
     if (guess[i] === secret[i]) {
       bulls++;
       secretUsed[i] = true;
@@ -18,10 +19,10 @@ export function evaluate(guess: string, secret: string): EvaluationResult {
     }
   }
 
-  // Second pass: count cows (right digit, wrong position)
-  for (let i = 0; i < DIGIT_COUNT; i++) {
+  // Second pass: count cows (right symbol, wrong position)
+  for (let i = 0; i < len; i++) {
     if (guessUsed[i]) continue;
-    for (let j = 0; j < DIGIT_COUNT; j++) {
+    for (let j = 0; j < len; j++) {
       if (secretUsed[j]) continue;
       if (guess[i] === secret[j]) {
         cows++;

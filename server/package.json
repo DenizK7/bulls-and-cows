@@ -17,7 +17,8 @@
     "ioredis": "^5.4.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "word-list": "^4.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
