@@ -2,8 +2,10 @@ import type { AIDifficulty } from '@bulls-and-cows/shared';
 import { AI_THINK_MIN_MS, AI_THINK_MAX_MS } from '@bulls-and-cows/shared';
 import { randomSecret } from '../utils/bulls-cows.js';
 import { KnuthSolver, SimpleSolver, RandomGuesser } from '../utils/knuth.js';
+import { WordSolver } from '../utils/word-solver.js';
+import { randomWord, type WordLang } from '../utils/words.js';
 
-type Solver = KnuthSolver | SimpleSolver | RandomGuesser;
+type Solver = KnuthSolver | SimpleSolver | RandomGuesser | WordSolver;
 
 interface AIState {
   solver: Solver;
@@ -23,7 +25,12 @@ function createSolver(difficulty: AIDifficulty, maxDigit: number = 9): Solver {
   }
 }
 
-export function initAIGame(gameId: string, difficulty: AIDifficulty, colorCount: number | null = null): string {
+export function initAIGame(gameId: string, difficulty: AIDifficulty, colorCount: number | null = null, wordLang: WordLang | null = null): string {
+  if (wordLang) {
+    const secret = randomWord(wordLang);
+    activeGames.set(gameId, { solver: new WordSolver(wordLang, difficulty), secret });
+    return secret;
+  }
   const maxDigit = colorCount != null ? colorCount - 1 : 9;
   const secret = randomSecret(maxDigit);
   activeGames.set(gameId, {

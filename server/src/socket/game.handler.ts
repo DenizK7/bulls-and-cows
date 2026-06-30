@@ -238,13 +238,14 @@ async function endGame(
  */
 async function createRematchGame(io: Server, socket: AuthenticatedSocket, orig: any): Promise<void> {
   const colorCount = orig.colorCount ?? null;
+  const wordLang = (orig.wordLang ?? null) as WordLang | null;
 
   if (orig.type === 'ai') {
     const difficulty = (orig.aiDifficulty || 'medium') as AIDifficulty;
-    initAIGame('pending', difficulty, colorCount);
+    initAIGame('pending', difficulty, colorCount, wordLang);
     const game = await Game.create({
       type: 'ai', matchType: 'ai', status: 'waiting_secrets',
-      turnTimeMs: orig.turnTimeMs, colorCount, aiDifficulty: difficulty,
+      turnTimeMs: orig.turnTimeMs, colorCount, wordLang, aiDifficulty: difficulty,
       players: {
         host: { userId: socket.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
         challenger: { userId: 'AI', secret: '', secretSet: true, guesses: [], guessedThisRound: false },
@@ -252,7 +253,7 @@ async function createRematchGame(io: Server, socket: AuthenticatedSocket, orig: 
     });
     const newId = game._id!.toString();
     cleanupAIGame('pending');
-    initAIGame(newId, difficulty, colorCount);
+    initAIGame(newId, difficulty, colorCount, wordLang);
     game.players.challenger.secret = getAISecret(newId)!;
     await game.save();
     socket.emit('server:game:rematch-start', { gameId: newId });
@@ -262,7 +263,7 @@ async function createRematchGame(io: Server, socket: AuthenticatedSocket, orig: 
   // PvP: same host/challenger, fresh secrets/guesses
   const game = await Game.create({
     type: 'pvp', matchType: orig.matchType, status: 'waiting_secrets',
-    turnTimeMs: orig.turnTimeMs, colorCount,
+    turnTimeMs: orig.turnTimeMs, colorCount, wordLang,
     players: {
       host: { userId: orig.players.host.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
       challenger: { userId: orig.players.challenger.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
@@ -274,15 +275,17 @@ async function createRematchGame(io: Server, socket: AuthenticatedSocket, orig: 
 
 export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void {
   // Start AI game
-  socket.on('client:game:start-ai', async ({ difficulty, turnTimeMs, colorCount }: { difficulty: AIDifficulty; turnTimeMs?: number; colorCount?: number | null }) => {
+  socket.on('client:game:start-ai', async ({ difficulty, turnTimeMs, colorCount, wordLang }: { difficulty: AIDifficulty; turnTimeMs?: number; colorCount?: number | null; wordLang?: string | null }) => {
     try {
       const validTurnTime = [30000, 60000, 120000].includes(turnTimeMs || 0) ? turnTimeMs : DEFAULT_TURN_TIME_MS;
-      const validColorCount = (typeof colorCount === 'number' && [5, 6, 7, 8].includes(colorCount)) ? colorCount : null;
-      const aiSecret = initAIGame('pending', difficulty, validColorCount);
+      const validWordLang = isWordLang(wordLang) ? wordLang : null;
+      const validColorCount = (!validWordLang && typeof colorCount === 'number' && [5, 6, 7, 8].includes(colorCount)) ? colorCount : null;
+      const aiSecret = initAIGame('pending', difficulty, validColorCount, validWordLang);
       const game = await Game.create({
         type: 'ai', matchType: 'ai', status: 'waiting_secrets',
         turnTimeMs: validTurnTime,
         colorCount: validColorCount,
+        wordLang: validWordLang,
         aiDifficulty: difficulty,
         players: {
           host: { userId: socket.userId, secret: '', secretSet: false, guesses: [], guessedThisRound: false },
@@ -291,7 +294,7 @@ export function handleGameEvents(io: Server, socket: AuthenticatedSocket): void 
       });
       const gameId = game._id!.toString();
       cleanupAIGame('pending');
-      initAIGame(gameId, difficulty, validColorCount);
+      initAIGame(gameId, difficulty, validColorCount, validWordLang);
       game.players.challenger.secret = getAISecret(gameId)!;
       await game.save();
 

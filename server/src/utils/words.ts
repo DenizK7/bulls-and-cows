@@ -25,3 +25,7 @@ export function randomWord(lang: WordLang): string {
   const l = LISTS[lang];
   return l[Math.floor(Math.random() * l.length)];
 }
+
+export function wordList(lang: WordLang): string[] {
+  return LISTS[lang];
+}

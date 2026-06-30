@@ -214,7 +214,7 @@ export default function LobbyPage() {
   const user = session?.user;
   const userTag = (session as { tag?: string })?.tag || "0000";
 
-  const handlePlayAI = (difficulty: string) => socket?.emit("client:game:start-ai", { difficulty, turnTimeMs: aiTurnTime, colorCount });
+  const handlePlayAI = (difficulty: string) => socket?.emit("client:game:start-ai", { difficulty, turnTimeMs: aiTurnTime, colorCount: wordLang ? null : colorCount, wordLang });
 
   const handleFindMatch = () => {
     if (matchmaking) { socket?.emit("client:matchmaking:leave"); setMatchmaking(false); }
@@ -509,14 +509,13 @@ export default function LobbyPage() {
                     { label: t("difficulty.medium"), difficulty: "medium", bg: "bg-warning", edge: "#8a763e" },
                     { label: t("difficulty.hard"), difficulty: "hard", bg: "bg-danger", edge: "#7a3b3b" },
                   ].map((m) => (
-                    <button key={m.difficulty} onClick={() => handlePlayAI(m.difficulty)} disabled={!connected || !!wordLang}
+                    <button key={m.difficulty} onClick={() => handlePlayAI(m.difficulty)} disabled={!connected}
                       style={{ "--edge": m.edge } as CSSProperties}
                       className={`btn-juicy rounded-xl py-3 text-center font-bold text-sm text-bg cursor-pointer ${m.bg}`}>
                       {m.label}
                     </button>
                   ))}
                 </div>
-                {wordLang && <p className="text-[10px] text-[#2a1d16]/60 mt-2 text-center">{t("lobby.wordsOnline")}</p>}
               </div>
 
               {/* Secondary: Daily / Friends / How-to */}
