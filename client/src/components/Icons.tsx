@@ -98,3 +98,12 @@ export function IconGlobe({ className = "w-5 h-5" }: IconProps) {
     </svg>
   );
 }
+
+export function IconDownload({ className = "w-5 h-5" }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" />
+      <path d="M5 19h14" />
+    </svg>
+  );
+}

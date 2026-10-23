@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n";
 import { BrandTitle } from "@/components/BrandTitle";
 import { LeftSword, RightSword } from "@/components/SwordIcon";
+import { IconDownload } from "@/components/Icons";
 
 const DEMO_GUESSES = [
   { guess: "1234", bulls: 0, cows: 2, delay: 0 },
@@ -280,6 +281,21 @@ export default function Home() {
           <span className="font-pixel text-2xl sm:text-3xl text-cow leading-none">7</span>
         </motion.div>
       </motion.div>
+
+      {/* Android app download — secondary to the Play CTA */}
+      <motion.a
+        href="/indir"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: attacking ? 0 : 1 }}
+        transition={{ delay: attacking ? 0 : 3.3, duration: 0.4 }}
+        className="relative z-10 flex items-center gap-2.5 px-4 py-2 border border-border rounded-sm bg-bg-elevated/60 text-text-muted hover:text-text hover:border-text-dim transition-colors"
+      >
+        <IconDownload className="w-4 h-4 shrink-0" />
+        <span className="flex flex-col leading-tight">
+          <span className="font-pixel text-[8px] sm:text-[9px]">{t("landing.androidApp")}</span>
+          <span className="text-text-dim text-[10px]">{t("landing.androidApk")}</span>
+        </span>
+      </motion.a>
 
       {/* Full-screen flash — explodes outward from button, then reverses */}
       <motion.div

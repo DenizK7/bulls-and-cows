@@ -6,6 +6,8 @@ const translations = {
     "landing.title.crack": "Crack the code.",
     "landing.title.challenge": "Challenge your friends.",
     "landing.playNow": "Play Now",
+    "landing.androidApp": "Get the Android app",
+    "landing.androidApk": "APK · 24 MB · preview",
     // Login
     "login.signIn": "Sign in to start playing",
     "login.continueGoogle": "Continue with Google",
@@ -209,6 +211,8 @@ const translations = {
     "landing.title.crack": "Kodu \u00e7\u00f6z.",
     "landing.title.challenge": "Arkada\u015flar\u0131na meydan oku.",
     "landing.playNow": "Oyna",
+    "landing.androidApp": "Android uygulamasını indir",
+    "landing.androidApk": "APK · 24 MB · önizleme",
     // Login
     "login.signIn": "Oynamak i\u00e7in giri\u015f yap",
     "login.continueGoogle": "Google ile devam et",
